@@ -1,0 +1,16 @@
+/* src/components/Header/Header.module.css */
+.header {
+  height: 108px; /* 1 birim */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px dashed #ccc;
+}
+
+.search {
+  width: 60%;
+  padding: 12px 20px;
+  font-size: 18px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}

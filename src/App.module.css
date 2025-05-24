@@ -1,0 +1,19 @@
+/* src/App.module.css */
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: #0f0f10;
+}
+
+.main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.content {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+}
