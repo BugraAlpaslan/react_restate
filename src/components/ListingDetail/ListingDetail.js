@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, MapPin, Home, Bath, Maximize, Calendar, 
   Thermometer, Sofa, Car, Shield, Phone, Mail, Share2,
-  Heart, ChevronLeft, ChevronRight
+  Heart
 } from 'lucide-react';
 import styles from './ListingDetail.module.css';
 
@@ -14,37 +14,48 @@ const ListingDetail = () => {
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
 
-  // Java Backend API çağrısı
+  // ⭐ Mock data'dan listing al
   useEffect(() => {
     const fetchListing = async () => {
       try {
         setLoading(true);
-        // Java Spring Boot endpoint
-        const response = await fetch(`/api/listings/${id}`);
         
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        // Mock data import et
+        const { listings } = await import('../../data/listings.js');
+        const foundListing = listings.find(l => l.id === parseInt(id));
         
-        const data = await response.json();
-        setListing(data);
-        
-        // Favoriler kontrolü
-        const favoritesResponse = await fetch(`/api/users/favorites/${id}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}` // JWT token
-          }
-        });
-        if (favoritesResponse.ok) {
-          setIsFavorite(true);
+        if (foundListing) {
+          // Mock data'yı detay formatına uyarla
+          const adaptedListing = {
+            ...foundListing,
+            location: `İstanbul, ${foundListing.title.includes('Downtown') ? 'Şişli' : 'Beşiktaş'}`,
+            bedrooms: foundListing.title.includes('Studio') ? 1 : 3,
+            bathrooms: 2,
+            area: foundListing.title.includes('Studio') ? 45 : 120,
+            buildingAge: 5,
+            floor: 3,
+            totalFloors: 8,
+            heatingType: 'Merkezi',
+            furnished: 'Eşyalı',
+            parkingSpot: true,
+            ownerName: 'Mehmet Yılmaz',
+            phone: '0532 123 45 67',
+            email: 'mehmet@example.com',
+            createdAt: new Date().toISOString(),
+            viewCount: 250,
+            features: ['Asansör', 'Güvenlik', 'Otopark', 'Balkon'],
+            images: [foundListing.imageUrl]
+          };
+          
+          setListing(adaptedListing);
+        } else {
+          setError('İlan bulunamadı');
         }
         
       } catch (err) {
-        console.error('Error fetching listing:', err);
-        setError(err.message);
+        setError('İlan yüklenirken hata oluştu');
       } finally {
         setLoading(false);
       }
@@ -55,73 +66,21 @@ const ListingDetail = () => {
     }
   }, [id]);
 
-  const handleFavoriteToggle = async () => {
-    try {
-      const method = isFavorite ? 'DELETE' : 'POST';
-      const response = await fetch(`/api/users/favorites/${id}`, {
-        method,
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        setIsFavorite(!isFavorite);
-      }
-    } catch (err) {
-      console.error('Error toggling favorite:', err);
-    }
+  const handleFavoriteToggle = () => {
+    setIsFavorite(!isFavorite);
   };
 
-  const handleContactOwner = async () => {
-    try {
-      // İletişim log'u backend'e gönder
-      await fetch('/api/contacts', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          listingId: id,
-          contactType: 'PHONE_VIEW',
-          timestamp: new Date().toISOString()
-        })
-      });
-    } catch (err) {
-      console.error('Error logging contact:', err);
-    }
+  const handleContactOwner = () => {
+    alert(`İlan Sahibi: ${listing?.ownerName}\nTelefon: ${listing?.phone}`);
   };
 
   const handleShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: listing.title,
-          text: listing.description,
-          url: window.location.href,
-        });
-      } catch (err) {
-        console.error('Error sharing:', err);
-      }
-    } else {
-      // Fallback: clipboard'a kopyala
-      navigator.clipboard.writeText(window.location.href);
+    try {
+      await navigator.clipboard.writeText(window.location.href);
       alert('Link kopyalandı!');
+    } catch (err) {
+      alert('Link kopyalanamadı');
     }
-  };
-
-  const nextImage = () => {
-    setCurrentImageIndex((prev) => 
-      prev === listing.images.length - 1 ? 0 : prev + 1
-    );
-  };
-
-  const prevImage = () => {
-    setCurrentImageIndex((prev) => 
-      prev === 0 ? listing.images.length - 1 : prev - 1
-    );
   };
 
   if (loading) {
@@ -140,7 +99,7 @@ const ListingDetail = () => {
       <div className={styles.container}>
         <div className={styles.error}>
           <h2>İlan Bulunamadı</h2>
-          <p>{error || 'İlan mevcut değil veya kaldırılmış.'}</p>
+          <p>{error}</p>
           <button onClick={() => navigate('/')} className={styles.backBtn}>
             Ana Sayfaya Dön
           </button>
@@ -175,49 +134,17 @@ const ListingDetail = () => {
       </div>
 
       <div className={styles.content}>
-        {/* Image Gallery */}
+        {/* Image Section */}
         <div className={styles.imageSection}>
           <div className={styles.mainImage}>
             <img 
-              src={listing.images?.[currentImageIndex] || listing.imageUrl || '/placeholder.jpg'} 
+              src={listing.imageUrl} 
               alt={listing.title}
               onError={(e) => {
                 e.target.src = 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&h=600&fit=crop';
               }}
             />
-            
-            {listing.images?.length > 1 && (
-              <>
-                <button className={styles.imageNav + ' ' + styles.prevBtn} onClick={prevImage}>
-                  <ChevronLeft size={24} />
-                </button>
-                <button className={styles.imageNav + ' ' + styles.nextBtn} onClick={nextImage}>
-                  <ChevronRight size={24} />
-                </button>
-                
-                <div className={styles.imageCounter}>
-                  {currentImageIndex + 1} / {listing.images.length}
-                </div>
-              </>
-            )}
           </div>
-
-          {listing.images?.length > 1 && (
-            <div className={styles.thumbnails}>
-              {listing.images.map((img, index) => (
-                <img
-                  key={index}
-                  src={img}
-                  alt={`${listing.title} ${index + 1}`}
-                  className={`${styles.thumbnail} ${index === currentImageIndex ? styles.active : ''}`}
-                  onClick={() => setCurrentImageIndex(index)}
-                  onError={(e) => {
-                    e.target.src = 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=150&h=100&fit=crop';
-                  }}
-                />
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Info Section */}
@@ -234,7 +161,7 @@ const ListingDetail = () => {
             <div className={styles.specs}>
               <div className={styles.spec}>
                 <Home size={16} />
-                <span>{listing.bedrooms}+{listing.livingRooms || 1}</span>
+                <span>{listing.bedrooms}+1</span>
               </div>
               <div className={styles.spec}>
                 <Bath size={16} />
@@ -244,12 +171,10 @@ const ListingDetail = () => {
                 <Maximize size={16} />
                 <span>{listing.area} m²</span>
               </div>
-              {listing.buildingAge && (
-                <div className={styles.spec}>
-                  <Calendar size={16} />
-                  <span>{listing.buildingAge} yaş</span>
-                </div>
-              )}
+              <div className={styles.spec}>
+                <Calendar size={16} />
+                <span>{listing.buildingAge} yaş</span>
+              </div>
             </div>
 
             <div className={styles.description}>
@@ -257,50 +182,38 @@ const ListingDetail = () => {
               <p>{listing.description}</p>
             </div>
 
-            {/* Property Details */}
             <div className={styles.details}>
               <h3>Emlak Detayları</h3>
               <div className={styles.detailGrid}>
-                {listing.heatingType && (
-                  <div className={styles.detailItem}>
-                    <Thermometer size={16} />
-                    <span>Isıtma: {listing.heatingType}</span>
-                  </div>
-                )}
-                {listing.furnished && (
-                  <div className={styles.detailItem}>
-                    <Sofa size={16} />
-                    <span>Eşya: {listing.furnished}</span>
-                  </div>
-                )}
-                {listing.parkingSpot && (
-                  <div className={styles.detailItem}>
-                    <Car size={16} />
-                    <span>Otopark Var</span>
-                  </div>
-                )}
-                {listing.floor && (
-                  <div className={styles.detailItem}>
-                    <span>Kat: {listing.floor}/{listing.totalFloors || '?'}</span>
-                  </div>
-                )}
+                <div className={styles.detailItem}>
+                  <Thermometer size={16} />
+                  <span>Isıtma: {listing.heatingType}</span>
+                </div>
+                <div className={styles.detailItem}>
+                  <Sofa size={16} />
+                  <span>Eşya: {listing.furnished}</span>
+                </div>
+                <div className={styles.detailItem}>
+                  <Car size={16} />
+                  <span>Otopark Var</span>
+                </div>
+                <div className={styles.detailItem}>
+                  <span>Kat: {listing.floor}/{listing.totalFloors}</span>
+                </div>
               </div>
             </div>
 
-            {/* Features */}
-            {listing.features?.length > 0 && (
-              <div className={styles.features}>
-                <h3>Özellikler</h3>
-                <div className={styles.featureList}>
-                  {listing.features.map((feature, index) => (
-                    <span key={index} className={styles.featureTag}>
-                      <Shield size={12} />
-                      {feature}
-                    </span>
-                  ))}
-                </div>
+            <div className={styles.features}>
+              <h3>Özellikler</h3>
+              <div className={styles.featureList}>
+                {listing.features.map((feature, index) => (
+                  <span key={index} className={styles.featureTag}>
+                    <Shield size={12} />
+                    {feature}
+                  </span>
+                ))}
               </div>
-            )}
+            </div>
           </div>
 
           {/* Contact Card */}
@@ -308,7 +221,7 @@ const ListingDetail = () => {
             <div className={styles.ownerInfo}>
               <h3>İlan Sahibi</h3>
               <div className={styles.ownerDetails}>
-                <div className={styles.ownerName}>{listing.ownerName || 'İlan Sahibi'}</div>
+                <div className={styles.ownerName}>{listing.ownerName}</div>
                 <div className={styles.memberSince}>
                   Üyelik: {new Date(listing.createdAt).getFullYear()}
                 </div>
@@ -317,19 +230,20 @@ const ListingDetail = () => {
 
             <div className={styles.contactButtons}>
               <button 
-                className={styles.contactBtn + ' ' + styles.primary}
+                className={`${styles.contactBtn} ${styles.primary}`}
                 onClick={handleContactOwner}
               >
                 <Phone size={18} />
-                Telefon: {listing.phone || 'Göster'}
+                Telefonu Göster
               </button>
               
-              {listing.email && (
-                <button className={styles.contactBtn + ' ' + styles.secondary}>
-                  <Mail size={18} />
-                  E-posta Gönder
-                </button>
-              )}
+              <button 
+                className={`${styles.contactBtn} ${styles.secondary}`}
+                onClick={() => window.location.href = `mailto:${listing.email}`}
+              >
+                <Mail size={18} />
+                E-posta Gönder
+              </button>
             </div>
 
             <div className={styles.listingStats}>
@@ -343,7 +257,7 @@ const ListingDetail = () => {
               </div>
               <div className={styles.stat}>
                 <span>Görüntülenme</span>
-                <span>{listing.viewCount || 0}</span>
+                <span>{listing.viewCount}</span>
               </div>
             </div>
           </div>

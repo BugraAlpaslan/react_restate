@@ -19,6 +19,96 @@
   border-radius: 12px;
   background-color: #e6f0ff;
   box-shadow: 0 2px 6px rgba(0, 123, 255, 0.1);
+  /* ⭐ Tıklama efektleri için eklenen stiller */
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+  overflow: hidden;
+}
+
+/* ⭐ Hover efektleri eklendi */
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(0, 123, 255, 0.2);
+  border-color: #0056b3;
+  background-color: #d4edff;
+}
+
+/* ⭐ Focus efekti (klavye navigasyonu için) */
+.card:focus {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}
+
+/* ⭐ Active efekti (tıklama anında) */
+.card:active {
+  transform: translateY(-2px) scale(0.98);
+  box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+}
+
+/* ⭐ Hover overlay efekti */
+.cardOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 123, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.card:hover .cardOverlay {
+  opacity: 1;
+}
+
+.viewDetailsText {
+  background: rgba(0, 123, 255, 0.9);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+  transform: translateY(10px);
+  transition: transform 0.3s ease;
+}
+
+.card:hover .viewDetailsText {
+  transform: translateY(0);
+}
+
+/* ⭐ Kart içeriği z-index ayarı */
+.card h3,
+.card p {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  transition: color 0.3s ease;
+}
+
+.card h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.card p {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #007bff;
+}
+
+.card:hover h3 {
+  color: #0056b3;
+}
+
+.card:hover p {
+  color: #004494;
 }
 
 .pagination {
@@ -36,9 +126,59 @@
   border: none;
   border-radius: 6px;
   cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 500;
+}
+
+.pagination button:hover:not(:disabled) {
+  background-color: #0056b3;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
 }
 
 .pagination button:disabled {
   background-color: #ccc;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.pagination span {
+  font-weight: 500;
+  color: #333;
+  min-width: 120px;
+  text-align: center;
+}
+
+/* ⭐ Responsive tasarım iyileştirmeleri */
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+  
+  .container {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .card {
+    padding: 12px;
+  }
+  
+  .pagination {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .pagination button {
+    width: 100%;
+    max-width: 200px;
+  }
 }

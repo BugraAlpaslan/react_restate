@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom'; // ⭐ SADECE BU EKLENDİ
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { listings } from '../../data/listings.js'; // Düzeltildi: export destructure edildi
-import styles from './ListingCarousel.module.css'; // Düzeltildi: CSS modules syntax
+import { listings } from '../../data/listings.js';
+import styles from './ListingCarousel.module.css';
 
 const ListingCarousel = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const navigate = useNavigate(); // ⭐ SADECE BU EKLENDİ
   const itemsPerSlide = 9;
   const totalSlides = Math.ceil(listings.length / itemsPerSlide);
 
@@ -24,6 +26,11 @@ const ListingCarousel = () => {
     const startIndex = currentSlide * itemsPerSlide;
     const endIndex = startIndex + itemsPerSlide;
     return listings.slice(startIndex, endIndex);
+  };
+
+  // ⭐ SADECE BU FONKSİYON EKLENDİ
+  const handleViewDetails = (listingId) => {
+    navigate(`/listing/${listingId}`);
   };
 
   const ListingCard = ({ listing }) => (
@@ -49,7 +56,11 @@ const ListingCarousel = () => {
           <span className={styles.listingPrice}>
             {listing.price}
           </span>
-          <button className={styles.listingBtn}>
+          {/* ⭐ SADECE BU BUTON DEĞİŞTİ */}
+          <button 
+            className={styles.listingBtn}
+            onClick={() => handleViewDetails(listing.id)}
+          >
             View Details
           </button>
         </div>

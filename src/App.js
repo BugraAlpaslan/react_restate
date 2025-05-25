@@ -5,6 +5,7 @@ import Sidebar from "./components/sidebar/Sidebar";
 import Header from "./components/Header/Header";
 import ListingCarousel from "./components/ListingCarousel/ListingCarousel";
 import AddListing from "./components/AddListing/AddListing";
+import ListingDetail from "./components/ListingDetail/ListingDetail"; // ⭐ SADECE BU EKLENDİ
 import styles from "./App.module.css";
 
 // Ana sayfa komponenti
@@ -32,6 +33,9 @@ const App = () => {
           
           {/* İlan ekleme sayfası */}
           <Route path="/add-listing" element={<AddListing />} />
+          
+          {/* ⭐ SADECE BU ROUTE EKLENDİ */}
+          <Route path="/listing/:id" element={<ListingDetail />} />
         </Routes>
       </div>
     </Router>
