@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-// ...existing code...
-import listings from '../../data/listings.js';
-// ...existing code...
-import './ListingCarousel.module.css';
+import { listings } from '../../data/listings.js'; // Düzeltildi: export destructure edildi
+import styles from './ListingCarousel.module.css'; // Düzeltildi: CSS modules syntax
 
 const ListingCarousel = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -29,29 +27,29 @@ const ListingCarousel = () => {
   };
 
   const ListingCard = ({ listing }) => (
-    <div className="listing-card">
-      <div className="listing-image-container">
+    <div className={styles.listingCard}>
+      <div className={styles.listingImageContainer}>
         <img
           src={listing.imageUrl}
           alt={listing.title}
-          className="listing-image"
+          className={styles.listingImage}
           onError={(e) => {
             e.target.src = 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&h=300&fit=crop';
           }}
         />
       </div>
-      <div className="listing-content">
-        <h3 className="listing-title">
+      <div className={styles.listingContent}>
+        <h3 className={styles.listingTitle}>
           {listing.title}
         </h3>
-        <p className="listing-description">
+        <p className={styles.listingDescription}>
           {listing.description}
         </p>
-        <div className="listing-footer">
-          <span className="listing-price">
+        <div className={styles.listingFooter}>
+          <span className={styles.listingPrice}>
             {listing.price}
           </span>
-          <button className="listing-btn">
+          <button className={styles.listingBtn}>
             View Details
           </button>
         </div>
@@ -60,57 +58,60 @@ const ListingCarousel = () => {
   );
 
   return (
-    <div className="carousel-container">
-      <div className="carousel-wrapper">
+    <div className={styles.carouselContainer}>
+      <div className={styles.carouselWrapper}>
         {/* Header */}
-        <div className="carousel-header">
-          <h1 className="carousel-title">Property Listings</h1>
-          <div className="carousel-controls">
-            <span className="slide-counter">
-              Slide {currentSlide + 1} of {totalSlides}
+        <div className={styles.carouselHeader}>
+          <h1 className={styles.carouselTitle}>Property Listings</h1>
+          <div className={styles.carouselInfo}>
+            <span className={styles.slideCounter}>
+              {currentSlide + 1} / {totalSlides}
             </span>
-            <div className="nav-buttons">
-              <button
-                onClick={prevSlide}
-                disabled={currentSlide === 0}
-                className={`nav-btn ${currentSlide === 0 ? 'disabled' : ''}`}
-              >
-                <ChevronLeft size={20} />
-              </button>
-              <button
-                onClick={nextSlide}
-                disabled={currentSlide === totalSlides - 1}
-                className={`nav-btn ${currentSlide === totalSlides - 1 ? 'disabled' : ''}`}
-              >
-                <ChevronRight size={20} />
-              </button>
-            </div>
           </div>
         </div>
 
-        {/* Carousel Content */}
-        <div className="carousel-content">
-          <div className="listings-grid">
+        {/* Carousel Content with Side Arrows */}
+        <div className={styles.carouselContent}>
+          {/* Sol Ok */}
+          <button
+            onClick={prevSlide}
+            disabled={currentSlide === 0}
+            className={`${styles.sideArrow} ${styles.leftArrow} ${currentSlide === 0 ? styles.disabled : ''}`}
+          >
+            <ChevronLeft size={32} />
+          </button>
+          
+          {/* Grid */}
+          <div className={styles.listingsGrid}>
             {getCurrentSlideItems().map((listing) => (
               <ListingCard key={listing.id} listing={listing} />
             ))}
           </div>
+          
+          {/* Sağ Ok */}
+          <button
+            onClick={nextSlide}
+            disabled={currentSlide === totalSlides - 1}
+            className={`${styles.sideArrow} ${styles.rightArrow} ${currentSlide === totalSlides - 1 ? styles.disabled : ''}`}
+          >
+            <ChevronRight size={32} />
+          </button>
         </div>
 
         {/* Slide Indicators */}
-        <div className="slide-indicators">
+        <div className={styles.slideIndicators}>
           {Array.from({ length: totalSlides }, (_, index) => (
             <button
               key={index}
               onClick={() => setCurrentSlide(index)}
-              className={`indicator ${index === currentSlide ? 'active' : ''}`}
+              className={`${styles.indicator} ${index === currentSlide ? styles.active : ''}`}
             />
           ))}
         </div>
 
         {/* Summary */}
-        <div className="carousel-summary">
-          <p className="summary-text">
+        <div className={styles.carouselSummary}>
+          <p className={styles.summaryText}>
             Showing {getCurrentSlideItems().length} of {listings.length} properties
           </p>
         </div>
