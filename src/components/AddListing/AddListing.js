@@ -12,7 +12,6 @@ const AddListing = () => {
     description: '',
     price: '',
     imageUrl: '',
-    imageFile: null,
     type: 'rent',
     bedrooms: '1',
     bathrooms: '1',
@@ -34,6 +33,7 @@ const AddListing = () => {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -51,10 +51,10 @@ const AddListing = () => {
     }
   };
 
-  const handleImageUpload = (e) => {
+  const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Check file size (max 5MB)
+      // File size check (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         setErrors(prev => ({
           ...prev,
@@ -63,7 +63,7 @@ const AddListing = () => {
         return;
       }
 
-      // Check file type
+      // File type check
       if (!file.type.startsWith('image/')) {
         setErrors(prev => ({
           ...prev,
@@ -72,19 +72,48 @@ const AddListing = () => {
         return;
       }
 
-      setFormData(prev => ({
-        ...prev,
-        imageFile: file
-      }));
+      try {
+        // Backend'e upload et
+        const uploadFormData = new FormData();
+        uploadFormData.append('file', file);
 
-      // Create preview
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreview(e.target.result);
-      };
-      reader.readAsDataURL(file);
+        console.log('Uploading file:', file.name);
+        
+        const response = await fetch('http://localhost:8080/api/upload/image', {
+          method: 'POST',
+          body: uploadFormData,
+        });
 
-      // Clear error
+        console.log('Upload response status:', response.status);
+        
+        const result = await response.json();
+        console.log('Upload result:', result);
+
+        if (result.success) {
+          // Upload başarılı
+          setImageFile(file);
+          setImagePreview(result.url); // Backend'den gelen URL'i kullan
+          setFormData(prev => ({
+            ...prev,
+            imageUrl: result.url // Form data'ya URL'i ekle
+          }));
+          
+          console.log('Upload başarılı, URL:', result.url);
+        } else {
+          setErrors(prev => ({
+            ...prev,
+            imageFile: result.message || 'Upload başarısız'
+          }));
+        }
+      } catch (error) {
+        console.error('Upload hatası:', error);
+        setErrors(prev => ({
+          ...prev,
+          imageFile: 'Resim yüklenirken hata oluştu: ' + error.message
+        }));
+      }
+
+      // Clear error if no issues
       if (errors.imageFile) {
         setErrors(prev => ({
           ...prev,
@@ -95,12 +124,12 @@ const AddListing = () => {
   };
 
   const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
     setFormData(prev => ({
       ...prev,
-      imageFile: null,
       imageUrl: ''
     }));
-    setImagePreview(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -135,7 +164,6 @@ const AddListing = () => {
     const newErrors = validateForm();
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      // Scroll to first error
       const firstErrorElement = document.querySelector(`.${styles.error}`);
       if (firstErrorElement) {
         firstErrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -146,24 +174,51 @@ const AddListing = () => {
     setIsSubmitting(true);
     
     try {
-      // Simulate API call with FormData for file upload
-      const submitData = new FormData();
-      Object.keys(formData).forEach(key => {
-        if (key === 'features') {
-          submitData.append(key, JSON.stringify(formData[key]));
-        } else if (key === 'imageFile' && formData[key]) {
-          submitData.append('image', formData[key]);
-        } else {
-          submitData.append(key, formData[key]);
-        }
+      // JSON formatında backend'e gönder
+      const submitData = {
+        title: formData.title,
+        description: formData.description,
+        price: parseInt(formData.price.replace(/[^0-9]/g, '')) || 0, // Sayısal değere çevir
+        area: parseInt(formData.area) || 0,
+        bedrooms: parseInt(formData.bedrooms) || 1,
+        bathrooms: parseInt(formData.bathrooms) || 1,
+        buildingAge: parseInt(formData.buildingAge) || 0,
+        location: formData.location,
+        city: formData.city,
+        district: formData.district,
+        neighborhood: formData.neighborhood || '',
+        floor: formData.floor ? parseInt(formData.floor) : null,
+        totalFloors: formData.totalFloors ? parseInt(formData.totalFloors) : null,
+        type: formData.type,
+        heatingType: formData.heatingType,
+        furnished: formData.furnished,
+        parkingSpot: formData.parkingSpot,
+        balcony: formData.balcony,
+        features: formData.features,
+        imageUrl: formData.imageUrl // Upload edilmiş resim URL'i
+      };
+
+      console.log('Submitting data:', submitData);
+
+      const response = await fetch('http://localhost:8080/api/listings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(submitData),
       });
 
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.log('Submit response status:', response.status);
       
-      console.log('New listing created with data:', Object.fromEntries(submitData));
-      
-      // Redirect back to main page
-      navigate('/');
+      const result = await response.json();
+      console.log('Submit result:', result);
+
+      if (result.success) {
+        console.log('İlan başarıyla oluşturuldu!');
+        navigate('/'); // Ana sayfaya yönlendir
+      } else {
+        setErrors({ submit: result.message || 'İlan oluşturulurken bir hata oluştu.' });
+      }
       
     } catch (error) {
       console.error('Error creating listing:', error);
@@ -234,7 +289,7 @@ const AddListing = () => {
                   >
                     <ImageIcon size={48} className={styles.uploadIcon} />
                     <p className={styles.uploadText}>Fotoğraf Yükle</p>
-                    <p className={styles.uploadSubtext}>veya buraya sürükleyin</p>
+                    <p className={styles.uploadSubtext}>veya buraya sürükleyin (Max 5MB)</p>
                   </div>
                 )}
                 
@@ -257,7 +312,7 @@ const AddListing = () => {
                     onChange={handleInputChange}
                     className={styles.input}
                     placeholder="https://example.com/image.jpg"
-                    disabled={!!formData.imageFile}
+                    disabled={!!imageFile}
                   />
                 </div>
               </div>
@@ -302,7 +357,7 @@ const AddListing = () => {
                     value={formData.price}
                     onChange={handleInputChange}
                     className={`${styles.input} ${errors.price ? styles.error : ''}`}
-                    placeholder="Örn: 15.000 ₺"
+                    placeholder="Örn: 15000 veya 15.000"
                   />
                   {errors.price && <span className={styles.errorText}>{errors.price}</span>}
                 </div>
@@ -425,6 +480,7 @@ const AddListing = () => {
                     onChange={handleInputChange}
                     className={`${styles.input} ${errors.area ? styles.error : ''}`}
                     placeholder="120"
+                    min="1"
                   />
                   {errors.area && <span className={styles.errorText}>{errors.area}</span>}
                 </div>
@@ -440,6 +496,8 @@ const AddListing = () => {
                     onChange={handleInputChange}
                     className={styles.input}
                     placeholder="3"
+                    min="-2"
+                    max="50"
                   />
                 </div>
 
@@ -452,6 +510,8 @@ const AddListing = () => {
                     onChange={handleInputChange}
                     className={styles.input}
                     placeholder="8"
+                    min="1"
+                    max="50"
                   />
                 </div>
 
@@ -464,6 +524,8 @@ const AddListing = () => {
                     onChange={handleInputChange}
                     className={styles.input}
                     placeholder="5"
+                    min="0"
+                    max="100"
                   />
                 </div>
               </div>
