@@ -1,4 +1,4 @@
-// src/App.js - Login state management ve HomePage filtreleme entegrasyonu
+// src/App.js - Güncellenmiş routes ve profil özellikli
 import React, { useState, useEffect, useCallback } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Sidebar from "./components/sidebar/Sidebar";
@@ -6,10 +6,12 @@ import Header from "./components/Header/Header";
 import ListingCarousel from "./components/ListingCarousel/ListingCarousel";
 import AddListing from "./components/AddListing/AddListing";
 import ListingDetail from "./components/ListingDetail/ListingDetail";
+import MyFavorites from "./components/MyFavorites/MyFavorites";
+import MyListings from "./components/MyListings/MyListings";
 import Login from "./components/Login/Login";
 import styles from "./App.module.css";
 
-// ⭐ Güncellenmiş Ana sayfa komponenti - Filtreleme ve arama özellikli
+// ⭐ Güncellenmiş Ana sayfa komponenti - Header'dan arama desteği
 const HomePage = () => {
   const [filteredListings, setFilteredListings] = useState([]);
   const [isFiltered, setIsFiltered] = useState(false);
@@ -44,7 +46,7 @@ const HomePage = () => {
     }
   }, []);
 
-  // ⭐ Arama işlemini handle et
+  // ⭐ Arama işlemini handle et (Header'dan gelecek)
   const handleSearch = useCallback(async (searchTerm) => {
     try {
       setLoading(true);
@@ -172,6 +174,12 @@ const App = () => {
     checkLoginStatus();
   };
 
+  // ⭐ Header arama handler'ı
+  const handleHeaderSearch = useCallback(async (searchTerm) => {
+    // Bu fonksiyon sadece HomePage'de kullanılacak
+    // Diğer sayfalarda arama yapılmayacak
+console.log("🔍 Header'dan arama:", searchTerm);  }, []);
+
   if (loading) {
     return (
       <div style={{ 
@@ -210,7 +218,11 @@ const App = () => {
           {/* Ana sayfa */}
           <Route path="/" element={
             <>
-              <Header user={user} onLogout={refreshLoginStatus} />
+              <Header 
+                user={user} 
+                onLogout={refreshLoginStatus}
+                onSearch={handleHeaderSearch}
+              />
               <HomePage />
             </>
           } />
@@ -218,7 +230,11 @@ const App = () => {
           {/* İlan ekleme sayfası */}
           <Route path="/add-listing" element={
             <>
-              <Header user={user} onLogout={refreshLoginStatus} />
+              <Header 
+                user={user} 
+                onLogout={refreshLoginStatus}
+                onSearch={handleHeaderSearch}
+              />
               <AddListing />
             </>
           } />
@@ -226,8 +242,72 @@ const App = () => {
           {/* İlan detay sayfası */}
           <Route path="/listing/:id" element={
             <>
-              <Header user={user} onLogout={refreshLoginStatus} />
+              <Header 
+                user={user} 
+                onLogout={refreshLoginStatus}
+                onSearch={handleHeaderSearch}
+              />
               <ListingDetail />
+            </>
+          } />
+          
+          {/* ⭐ Favori ilanlar sayfası */}
+          <Route path="/my-favorites" element={
+            <>
+              <Header 
+                user={user} 
+                onLogout={refreshLoginStatus}
+                onSearch={handleHeaderSearch}
+              />
+              <MyFavorites />
+            </>
+          } />
+          
+          {/* ⭐ Kullanıcının ilanları sayfası */}
+          <Route path="/my-listings" element={
+            <>
+              <Header 
+                user={user} 
+                onLogout={refreshLoginStatus}
+                onSearch={handleHeaderSearch}
+              />
+              <MyListings />
+            </>
+          } />
+          
+          {/* ⭐ İlan düzenleme sayfası (gelecekte eklenecek) */}
+          <Route path="/edit-listing/:id" element={
+            <>
+              <Header 
+                user={user} 
+                onLogout={refreshLoginStatus}
+                onSearch={handleHeaderSearch}
+              />
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                height: '60vh',
+                color: '#c9a96e',
+                flexDirection: 'column',
+                gap: '16px'
+              }}>
+                <h2>İlan Düzenleme</h2>
+                <p>Bu özellik henüz tamamlanmamıştır.</p>
+                <button 
+                  onClick={() => window.history.back()}
+                  style={{
+                    padding: '12px 24px',
+                    background: 'rgba(32, 32, 32, 0.9)',
+                    border: '1px solid rgba(201, 169, 110, 0.3)',
+                    borderRadius: '12px',
+                    color: 'rgba(230, 200, 148, 0.95)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Geri Dön
+                </button>
+              </div>
             </>
           } />
         </Routes>

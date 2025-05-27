@@ -1,4 +1,4 @@
-// src/components/AddListing/AddListing.js - Scroll ve veri uyumu düzeltmesi
+// src/components/AddListing/AddListing.js - Çoklu fotoğraf yükleme
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Upload, X, Plus, Home, MapPin, DollarSign, Ruler, Calendar, Thermometer, Sofa, Car, Image, Save } from 'lucide-react';
@@ -8,8 +8,9 @@ const AddListing = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [imageUrl, setImageUrl] = useState(''); // URL input için
   
-  // ⭐ Backend ile tam uyumlu form data
+  // ⭐ Backend ile tam uyumlu form data + images array
   const [formData, setFormData] = useState({
     // Temel bilgiler
     title: '',
@@ -38,10 +39,10 @@ const AddListing = () => {
     // Özellikler
     features: [],
     
-    // Resim
-    imageUrl: '',
+    // ⭐ Çoklu Resimler
+    images: [], // Array of {url, name, size}
     
-    // ⭐ Backend'de eksik olan alanlar (opsiyonel)
+    // Backend'de eksik olan alanlar (opsiyonel)
     ownerContact: '',
     ownerName: ''
   });
@@ -74,6 +75,116 @@ const AddListing = () => {
         ? prev.features.filter(f => f !== feature)
         : [...prev.features, feature]
     }));
+  };
+
+  // ⭐ Dosya yükleme fonksiyonu
+  const handleImageUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    
+    if (formData.images.length + files.length > 5) {
+      alert('Maksimum 5 fotoğraf yükleyebilirsiniz');
+      return;
+    }
+
+    setLoading(true);
+    const newImages = [];
+
+    for (const file of files) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert(`${file.name} dosyası 5MB'dan büyük`);
+        continue;
+      }
+
+      try {
+        const uploadFormData = new FormData();
+        uploadFormData.append('file', file);
+
+        const response = await fetch('http://localhost:8080/api/upload/image', {
+          method: 'POST',
+          body: uploadFormData,
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+          newImages.push({
+            url: result.url,
+            name: result.originalName,
+            size: result.size
+          });
+          console.log('✅ Fotoğraf yüklendi:', result.originalName);
+        } else {
+          console.error('❌ Fotoğraf yükleme hatası:', result.message);
+          alert('Fotoğraf yüklenemedi: ' + result.message);
+        }
+      } catch (error) {
+        console.error('❌ Fotoğraf yükleme hatası:', error);
+        alert('Fotoğraf yüklenirken hata oluştu: ' + error.message);
+      }
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      images: [...prev.images, ...newImages]
+    }));
+    
+    setLoading(false);
+    e.target.value = ''; // Input'u temizle
+  };
+
+  // ⭐ Fotoğraf silme fonksiyonu
+  const handleRemoveImage = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index)
+    }));
+    console.log('🗑️ Fotoğraf silindi, kalan:', formData.images.length - 1);
+  };
+
+  // ⭐ URL ile fotoğraf ekleme
+  const handleAddImageUrl = () => {
+    if (imageUrl && formData.images.length < 5) {
+      // URL'in geçerli bir resim olup olmadığını kontrol et
+      const img = new Image();
+      img.onload = () => {
+        setFormData(prev => ({
+          ...prev,
+          images: [...prev.images, { url: imageUrl, name: 'URL Image', size: 0 }]
+        }));
+        setImageUrl('');
+        console.log('✅ URL ile fotoğraf eklendi:', imageUrl);
+      };
+      img.onerror = () => {
+        alert('Geçersiz resim URL\'si');
+      };
+      img.src = imageUrl;
+    }
+  };
+
+  // ⭐ Drag & Drop desteği
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const files = Array.from(e.dataTransfer.files).filter(file => 
+      file.type.startsWith('image/')
+    );
+    
+    if (files.length > 0) {
+      // Fake event oluştur
+      const fakeEvent = {
+        target: {
+          files: files,
+          value: ''
+        }
+      };
+      handleImageUpload(fakeEvent);
+    }
   };
 
   const validateForm = () => {
@@ -128,11 +239,14 @@ const AddListing = () => {
         floor: formData.floor ? parseInt(formData.floor) : null,
         totalFloors: formData.totalFloors ? parseInt(formData.totalFloors) : null,
         
-        // Default resim
-        imageUrl: formData.imageUrl || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&h=300&fit=crop'
+        // ⭐ İlk resmi ana resim olarak kullan, yoksa default
+        imageUrl: formData.images.length > 0 
+          ? formData.images[0].url 
+          : 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&h=300&fit=crop'
       };
 
       console.log('📝 İlan gönderiliyor:', submitData);
+      console.log('📸 Toplam fotoğraf sayısı:', formData.images.length);
 
       const response = await fetch('http://localhost:8080/api/listings', {
         method: 'POST',
@@ -520,40 +634,93 @@ const AddListing = () => {
             </div>
           </div>
 
-          {/* Resim */}
+          {/* ⭐ Fotoğraflar - Çoklu Yükleme */}
           <div className={styles.section}>
             <div className={styles.sectionHeader}>
               <Image size={20} />
-              <h2>Resim</h2>
+              <h2>Fotoğraflar ({formData.images.length}/5)</h2>
             </div>
             
-            <div className={styles.row}>
-              <div className={styles.field}>
-                <label>Resim URL'i</label>
+            {/* Drag & Drop Alan */}
+            <div 
+              className={styles.uploadArea}
+              onClick={() => document.getElementById('fileInput').click()}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+            >
+              <Upload size={48} className={styles.uploadIcon} />
+              <div className={styles.uploadText}>Fotoğrafları yüklemek için tıklayın</div>
+              <div className={styles.uploadSubtext}>
+                veya dosyaları buraya sürükleyin (Maksimum 5 fotoğraf, her biri 5MB'dan küçük)
+              </div>
+              <input
+                id="fileInput"
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={handleImageUpload}
+                className={styles.hiddenInput}
+                disabled={loading}
+              />
+            </div>
+
+            {/* Yüklenen Fotoğrafların Önizlemesi */}
+            {formData.images && formData.images.length > 0 && (
+              <div className={styles.imagePreviewContainer}>
+                <h4>Yüklenen Fotoğraflar ({formData.images.length}/5)</h4>
+                <div className={styles.imagePreviewGrid}>
+                  {formData.images.map((image, index) => (
+                    <div key={index} className={styles.imagePreview}>
+                      <img 
+                        src={image.url || image} 
+                        alt={`Fotoğraf ${index + 1}`}
+                        className={styles.previewImage}
+                        onError={(e) => {
+                          e.target.src = 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=150&h=150&fit=crop';
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage(index)}
+                        className={styles.removeImageBtn}
+                        disabled={loading}
+                      >
+                        <X size={16} />
+                      </button>
+                      {index === 0 && (
+                        <div className={styles.mainImageBadge}>Ana Fotoğraf</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* URL ile Ekleme (Alternatif) */}
+            <div className={styles.urlUpload}>
+              <label>Veya URL ile ekleyin:</label>
+              <div className={styles.urlInputContainer}>
                 <input
                   type="url"
-                  name="imageUrl"
-                  value={formData.imageUrl}
-                  onChange={handleInputChange}
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
                   placeholder="https://example.com/image.jpg"
                   disabled={loading}
                 />
-                <small>Boş bırakılırsa varsayılan resim kullanılır</small>
+                <button
+                  type="button"
+                  onClick={handleAddImageUrl}
+                  disabled={loading || !imageUrl || formData.images.length >= 5}
+                  className={styles.addUrlBtn}
+                >
+                  <Plus size={16} />
+                  Ekle
+                </button>
               </div>
             </div>
-            
-            {formData.imageUrl && (
-              <div className={styles.imagePreview}>
-                <img 
-                  src={formData.imageUrl} 
-                  alt="Önizleme" 
-                  onError={(e) => e.target.style.display = 'none'}
-                />
-              </div>
-            )}
           </div>
 
-          {/* ⭐ İletişim (Opsiyonel - Backend'de henüz yok) */}
+          {/* İletişim (Opsiyonel) */}
           <div className={styles.section}>
             <div className={styles.sectionHeader}>
               <h2>İletişim (Opsiyonel)</h2>
@@ -593,10 +760,13 @@ const AddListing = () => {
       <div className={styles.footer}>
         <div className={styles.footerContent}>
           <div className={styles.formSummary}>
-            <span>Toplam {Object.keys(formData).filter(key => {
-              const value = formData[key];
-              return value !== '' && value !== false && !(Array.isArray(value) && value.length === 0);
-            }).length} alan dolduruldu</span>
+            <span>
+              Toplam {Object.keys(formData).filter(key => {
+                const value = formData[key];
+                return value !== '' && value !== false && !(Array.isArray(value) && value.length === 0);
+              }).length} alan dolduruldu
+              {formData.images.length > 0 && ` • ${formData.images.length} fotoğraf`}
+            </span>
           </div>
           
           <button 
