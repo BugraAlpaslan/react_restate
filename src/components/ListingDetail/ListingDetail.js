@@ -1,10 +1,10 @@
-// src/components/ListingDetail/ListingDetail.js
+// src/components/ListingDetail/ListingDetail.js - Backend entegrasyonu
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, MapPin, Home, Bath, Maximize, Calendar, 
   Thermometer, Sofa, Car, Shield, Phone, Mail, Share2,
-  Heart
+  Heart, RefreshCw, AlertCircle
 } from 'lucide-react';
 import styles from './ListingDetail.module.css';
 
@@ -16,62 +16,103 @@ const ListingDetail = () => {
   const [error, setError] = useState(null);
   const [isFavorite, setIsFavorite] = useState(false);
 
-  // ⭐ Mock data'dan listing al
-  useEffect(() => {
-    const fetchListing = async () => {
-      try {
-        setLoading(true);
-        
-        // Mock data import et
-        const { listings } = await import('../../data/listings.js');
-        const foundListing = listings.find(l => l.id === parseInt(id));
-        
-        if (foundListing) {
-          // Mock data'yı detay formatına uyarla
-          const adaptedListing = {
-            ...foundListing,
-            location: `İstanbul, ${foundListing.title.includes('Downtown') ? 'Şişli' : 'Beşiktaş'}`,
-            bedrooms: foundListing.title.includes('Studio') ? 1 : 3,
-            bathrooms: 2,
-            area: foundListing.title.includes('Studio') ? 45 : 120,
-            buildingAge: 5,
-            floor: 3,
-            totalFloors: 8,
-            heatingType: 'Merkezi',
-            furnished: 'Eşyalı',
-            parkingSpot: true,
-            ownerName: 'Mehmet Yılmaz',
-            phone: '0532 123 45 67',
-            email: 'mehmet@example.com',
-            createdAt: new Date().toISOString(),
-            viewCount: 250,
-            features: ['Asansör', 'Güvenlik', 'Otopark', 'Balkon'],
-            images: [foundListing.imageUrl]
-          };
-          
-          setListing(adaptedListing);
-        } else {
-          setError('İlan bulunamadı');
-        }
-        
-      } catch (err) {
-        setError('İlan yüklenirken hata oluştu');
-      } finally {
-        setLoading(false);
+  // ⭐ Backend'den ilan detayını çek
+  const fetchListing = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('🔍 İlan detayı çekiliyor, ID:', id);
+      
+      const response = await fetch(`http://localhost:8080/api/listings/${id}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-    };
+      
+      const result = await response.json();
+      console.log('📋 Backend detay response:', result);
+      
+      if (result.success && result.data) {
+        const fetchedListing = result.data;
+        
+        // Backend verisini frontend formatına uyarla
+        const adaptedListing = {
+          ...fetchedListing,
+          // Görüntüleme için uyarlama
+          title: fetchedListing.ismi || fetchedListing.title,
+          description: fetchedListing.aciklama || fetchedListing.description,
+          price: fetchedListing.fiyat || fetchedListing.price,
+          area: fetchedListing.m2 || fetchedListing.area,
+          bedrooms: fetchedListing.odaSayisi || fetchedListing.bedrooms,
+          buildingAge: fetchedListing.binaYasi || fetchedListing.buildingAge,
+          location: fetchedListing.konum || `${fetchedListing.city}/${fetchedListing.district}`,
+          
+          // Default değerler
+          bathrooms: fetchedListing.bathrooms || 1,
+          floor: fetchedListing.floor || 'Belirtilmemiş',
+          totalFloors: fetchedListing.totalFloors || 'Belirtilmemiş',
+          heatingType: fetchedListing.heatingType || 'Belirtilmemiş',
+          furnished: fetchedListing.furnished || 'Belirtilmemiş',
+          parkingSpot: fetchedListing.parkingSpot || false,
+          
+          // Sahibi bilgileri (mock data - backend'de henüz yok)
+          ownerName: fetchedListing.kimden || 'İlan Sahibi',
+          phone: '0532 123 45 67', // Mock
+          email: 'contact@example.com', // Mock
+          
+          // Zaman bilgileri
+          createdAt: fetchedListing.createdAt || new Date().toISOString(),
+          viewCount: fetchedListing.viewCount || 0,
+          
+          // Özellikler
+          features: fetchedListing.features || [],
+          
+          // Resim
+          imageUrl: fetchedListing.imageUrl || fetchedListing.getImageUrl?.() || 
+                   'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&h=600&fit=crop',
+          images: [fetchedListing.imageUrl || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&h=600&fit=crop']
+        };
+        
+        setListing(adaptedListing);
+        
+        console.log('✅ İlan detayı başarıyla yüklendi:');
+        console.log('   - Başlık:', adaptedListing.title);
+        console.log('   - Fiyat:', adaptedListing.price);
+        console.log('   - Konum:', adaptedListing.location);
+        console.log('   - ID:', id);
+        
+      } else {
+        throw new Error(result.message || 'İlan bulunamadı');
+      }
+      
+    } catch (err) {
+      console.error('❌ İlan detay yükleme hatası:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  // Component mount'ta ilanı yükle
+  useEffect(() => {
     if (id) {
       fetchListing();
+    } else {
+      setError('İlan ID\'si belirtilmemiş');
+      setLoading(false);
     }
   }, [id]);
 
   const handleFavoriteToggle = () => {
     setIsFavorite(!isFavorite);
+    console.log('❤️ Favori durumu:', !isFavorite ? 'Eklendi' : 'Çıkarıldı');
   };
 
   const handleContactOwner = () => {
-    alert(`İlan Sahibi: ${listing?.ownerName}\nTelefon: ${listing?.phone}`);
+    if (listing?.phone) {
+      alert(`İlan Sahibi: ${listing.ownerName}\nTelefon: ${listing.phone}`);
+    }
   };
 
   const handleShare = async () => {
@@ -83,26 +124,46 @@ const ListingDetail = () => {
     }
   };
 
+  const handleRefresh = () => {
+    console.log('🔄 İlan detayı yeniden yükleniyor...');
+    fetchListing();
+  };
+
+  // Loading durumu
   if (loading) {
     return (
       <div className={styles.container}>
         <div className={styles.loading}>
           <div className={styles.spinner}></div>
-          <p>İlan yükleniyor...</p>
+          <h2>İlan detayı yükleniyor...</h2>
+          <p>Backend'den veriler alınıyor</p>
         </div>
       </div>
     );
   }
 
+  // Error durumu
   if (error || !listing) {
     return (
       <div className={styles.container}>
         <div className={styles.error}>
+          <AlertCircle size={48} />
           <h2>İlan Bulunamadı</h2>
-          <p>{error}</p>
-          <button onClick={() => navigate('/')} className={styles.backBtn}>
-            Ana Sayfaya Dön
-          </button>
+          <p>Hata: {error}</p>
+          <div className={styles.errorActions}>
+            <button onClick={() => navigate('/')} className={styles.backBtn}>
+              Ana Sayfaya Dön
+            </button>
+            <button onClick={handleRefresh} className={styles.retryBtn}>
+              <RefreshCw size={16} />
+              Tekrar Dene
+            </button>
+          </div>
+          <div className={styles.debugInfo}>
+            <p><strong>Debug Bilgisi:</strong></p>
+            <p>İlan ID: {id}</p>
+            <p>API URL: http://localhost:8080/api/listings/{id}</p>
+          </div>
         </div>
       </div>
     );
@@ -110,7 +171,7 @@ const ListingDetail = () => {
 
   return (
     <div className={styles.container}>
-      {/* Header */}
+      {/* ⭐ Sabit Header */}
       <div className={styles.header}>
         <button 
           className={styles.backButton}
@@ -120,25 +181,34 @@ const ListingDetail = () => {
           Geri Dön
         </button>
         
+        <div className={styles.headerInfo}>
+          <span className={styles.backendBadge}>🌐 Backend Verisi</span>
+        </div>
+        
         <div className={styles.actions}>
+          <button onClick={handleRefresh} className={styles.actionBtn} title="Yenile">
+            <RefreshCw size={18} />
+          </button>
           <button 
             className={`${styles.actionBtn} ${isFavorite ? styles.favorite : ''}`}
             onClick={handleFavoriteToggle}
+            title="Favorilere Ekle"
           >
             <Heart size={18} fill={isFavorite ? 'currentColor' : 'none'} />
           </button>
-          <button className={styles.actionBtn} onClick={handleShare}>
+          <button className={styles.actionBtn} onClick={handleShare} title="Paylaş">
             <Share2 size={18} />
           </button>
         </div>
       </div>
 
-      <div className={styles.content}>
+      {/* ⭐ Scrollable Content */}
+      <div className={styles.scrollableContent}>
         {/* Image Section */}
         <div className={styles.imageSection}>
           <div className={styles.mainImage}>
             <img 
-              src={listing.imageUrl} 
+              src={listing.imageUrl}
               alt={listing.title}
               onError={(e) => {
                 e.target.src = 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&h=600&fit=crop';
@@ -151,7 +221,13 @@ const ListingDetail = () => {
         <div className={styles.infoSection}>
           <div className={styles.mainInfo}>
             <h1 className={styles.title}>{listing.title}</h1>
-            <div className={styles.price}>{listing.price}</div>
+            
+            <div className={styles.price}>
+              {typeof listing.price === 'number' 
+                ? `${listing.price.toLocaleString()}₺/ay` 
+                : listing.price
+              }
+            </div>
             
             <div className={styles.location}>
               <MapPin size={16} />
@@ -193,27 +269,31 @@ const ListingDetail = () => {
                   <Sofa size={16} />
                   <span>Eşya: {listing.furnished}</span>
                 </div>
-                <div className={styles.detailItem}>
-                  <Car size={16} />
-                  <span>Otopark Var</span>
-                </div>
+                {listing.parkingSpot && (
+                  <div className={styles.detailItem}>
+                    <Car size={16} />
+                    <span>Otopark Var</span>
+                  </div>
+                )}
                 <div className={styles.detailItem}>
                   <span>Kat: {listing.floor}/{listing.totalFloors}</span>
                 </div>
               </div>
             </div>
 
-            <div className={styles.features}>
-              <h3>Özellikler</h3>
-              <div className={styles.featureList}>
-                {listing.features.map((feature, index) => (
-                  <span key={index} className={styles.featureTag}>
-                    <Shield size={12} />
-                    {feature}
-                  </span>
-                ))}
+            {listing.features && listing.features.length > 0 && (
+              <div className={styles.features}>
+                <h3>Özellikler</h3>
+                <div className={styles.featureList}>
+                  {listing.features.map((feature, index) => (
+                    <span key={index} className={styles.featureTag}>
+                      <Shield size={12} />
+                      {feature}
+                    </span>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Contact Card */}
@@ -249,7 +329,7 @@ const ListingDetail = () => {
             <div className={styles.listingStats}>
               <div className={styles.stat}>
                 <span>İlan No</span>
-                <span>#{listing.id}</span>
+                <span>#{listing.ilanID || id}</span>
               </div>
               <div className={styles.stat}>
                 <span>Yayın Tarihi</span>

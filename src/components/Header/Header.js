@@ -1,10 +1,10 @@
-// src/components/Header/Header.js - Çıkış butonu ile
+// src/components/Header/Header.js - Props ve logout düzeltmesi
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, LogOut, User } from "lucide-react";
 import styles from "./Header.module.css";
 
-const Header = () => {
+const Header = ({ user, onLogout }) => {
   const navigate = useNavigate();
 
   const handleAddListing = () => {
@@ -12,16 +12,42 @@ const Header = () => {
   };
 
   const handleLogout = () => {
+    console.log('🚪 Çıkış yapılıyor...');
+    
+    // localStorage'ı temizle
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('user');
-    window.location.reload(); // Sayfayı yenile
+    
+    console.log('🗑️ localStorage temizlendi');
+    
+    // Parent component'e bildir
+    if (onLogout) {
+      onLogout();
+    }
+    
+    // ⭐ Sayfayı yenile (en emin yol)
+    setTimeout(() => {
+      console.log('🔄 Sayfa yenileniyor...');
+      window.location.href = '/';
+    }, 100);
   };
 
   const getUsername = () => {
-    const user = localStorage.getItem('user');
-    if (user) {
-      return JSON.parse(user).username;
+    if (user && user.username) {
+      return user.username;
     }
+    
+    // Fallback: localStorage'dan al
+    try {
+      const userData = localStorage.getItem('user');
+      if (userData) {
+        const parsed = JSON.parse(userData);
+        return parsed.username || 'Kullanıcı';
+      }
+    } catch (error) {
+      console.error('❌ User data parse hatası:', error);
+    }
+    
     return 'Kullanıcı';
   };
 

@@ -1,14 +1,76 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom'; // ⭐ SADECE BU EKLENDİ
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { listings } from '../../data/listings.js';
+// src/components/ListingCarousel/ListingCarousel.js - Backend entegrasyonu
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronLeft, ChevronRight, RefreshCw, AlertCircle } from 'lucide-react';
 import styles from './ListingCarousel.module.css';
 
-const ListingCarousel = () => {
+const ListingCarousel = ({ customListings = null, loading: externalLoading = false, isFiltered = false }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const navigate = useNavigate(); // ⭐ SADECE BU EKLENDİ
+  const [listings, setListings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [lastUpdate, setLastUpdate] = useState(null);
+  const navigate = useNavigate();
+
+  // ⭐ Custom listings kullan veya backend'den çek
+  const displayListings = customListings || listings;
+  const isLoading = externalLoading || (loading && !customListings);
+  
   const itemsPerSlide = 9;
-  const totalSlides = Math.ceil(listings.length / itemsPerSlide);
+
+  // ⭐ Backend'den ilanları çek
+  const fetchListings = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('📡 Backend\'den ilanlar çekiliyor...');
+      
+      const response = await fetch('http://localhost:8080/api/listings');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('📋 Backend response:', data);
+      
+      if (data.success && data.data) {
+        setListings(data.data);
+        setLastUpdate(new Date());
+        console.log(`✅ ${data.data.length} ilan başarıyla yüklendi`);
+        
+        // İlk birkaç ilanın detayını log'la
+        data.data.slice(0, 3).forEach((ilan, index) => {
+          console.log(`${index + 1}. ${ilan.ismi} - ${ilan.fiyat}₺ (ID: ${ilan.ilanID})`);
+        });
+        
+      } else {
+        throw new Error(data.message || 'İlanlar alınamadı');
+      }
+      
+    } catch (error) {
+      console.error('❌ İlan yükleme hatası:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Component mount'ta ilanları yükle
+  useEffect(() => {
+    fetchListings();
+  }, []);
+
+  // Sayfalama hesaplamaları
+  const totalSlides = Math.ceil(displayListings.length / itemsPerSlide);
+
+  // ⭐ Custom listings değiştiğinde slide'ı sıfırla
+  useEffect(() => {
+    if (customListings) {
+      setCurrentSlide(0);
+    }
+  }, [customListings]);
 
   const nextSlide = () => {
     if (currentSlide < totalSlides - 1) {
@@ -25,20 +87,86 @@ const ListingCarousel = () => {
   const getCurrentSlideItems = () => {
     const startIndex = currentSlide * itemsPerSlide;
     const endIndex = startIndex + itemsPerSlide;
-    return listings.slice(startIndex, endIndex);
+    return displayListings.slice(startIndex, endIndex);
   };
 
-  // ⭐ SADECE BU FONKSİYON EKLENDİ
   const handleViewDetails = (listingId) => {
+    console.log('👁️ İlan detayına gidiliyor, ID:', listingId);
     navigate(`/listing/${listingId}`);
   };
+
+  const handleRefresh = () => {
+    console.log('🔄 İlanlar yeniden yükleniyor...');
+    setCurrentSlide(0); // İlk sayfaya dön
+    fetchListings();
+  };
+
+  // Loading durumu
+  if (isLoading) {
+    return (
+      <div className={styles.carouselContainer}>
+        <div className={styles.carouselWrapper}>
+          <div className={styles.loadingState}>
+            <div className={styles.loadingSpinner}></div>
+            <h2>İlanlar yükleniyor...</h2>
+            <p>Backend'den veriler alınıyor</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error durumu
+  if (error) {
+    return (
+      <div className={styles.carouselContainer}>
+        <div className={styles.carouselWrapper}>
+          <div className={styles.errorState}>
+            <AlertCircle size={48} />
+            <h2>İlanlar Yüklenemedi</h2>
+            <p>Hata: {error}</p>
+            <div className={styles.errorActions}>
+              <button onClick={handleRefresh} className={styles.retryBtn}>
+                <RefreshCw size={16} />
+                Tekrar Dene
+              </button>
+              <button 
+                onClick={() => console.log('Backend durumu:', 'http://localhost:8080/api/listings')}
+                className={styles.debugBtn}
+              >
+                Backend Durumunu Kontrol Et
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // İlan yoksa
+  if (displayListings.length === 0 && !isLoading) {
+    return (
+      <div className={styles.carouselContainer}>
+        <div className={styles.carouselWrapper}>
+          <div className={styles.emptyState}>
+            <h2>{isFiltered ? 'Filtreye Uygun İlan Bulunamadı' : 'Henüz İlan Yok'}</h2>
+            <p>{isFiltered ? 'Filtre kriterlerinizi değiştirmeyi deneyin' : 'Backend\'de hiç ilan bulunamadı'}</p>
+            <button onClick={handleRefresh} className={styles.retryBtn}>
+              <RefreshCw size={16} />
+              {isFiltered ? 'Filtreleri Temizle' : 'Yenile'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const ListingCard = ({ listing }) => (
     <div className={styles.listingCard}>
       <div className={styles.listingImageContainer}>
         <img
-          src={listing.imageUrl}
-          alt={listing.title}
+          src={listing.imageUrl || listing.getImageUrl?.() || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&h=300&fit=crop'}
+          alt={listing.ismi || listing.title}
           className={styles.listingImage}
           onError={(e) => {
             e.target.src = 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&h=300&fit=crop';
@@ -47,21 +175,28 @@ const ListingCarousel = () => {
       </div>
       <div className={styles.listingContent}>
         <h3 className={styles.listingTitle}>
-          {listing.title}
+          {listing.ismi || listing.title}
         </h3>
         <p className={styles.listingDescription}>
-          {listing.description}
+          {listing.aciklama || listing.description}
         </p>
+        <div className={styles.listingMeta}>
+          <span className={styles.listingLocation}>
+            📍 {listing.city}/{listing.district}
+          </span>
+          <span className={styles.listingSpecs}>
+            🏠 {listing.odaSayisi || listing.bedrooms}+1 • 🛁 {listing.bathrooms} • 📐 {listing.m2 || listing.area}m²
+          </span>
+        </div>
         <div className={styles.listingFooter}>
           <span className={styles.listingPrice}>
-            {listing.price}
+            {listing.fiyat ? `${listing.fiyat.toLocaleString()}₺` : listing.price}
           </span>
-          {/* ⭐ SADECE BU BUTON DEĞİŞTİ */}
           <button 
             className={styles.listingBtn}
-            onClick={() => handleViewDetails(listing.id)}
+            onClick={() => handleViewDetails(listing.ilanID || listing.id)}
           >
-            View Details
+            Detayları Gör
           </button>
         </div>
       </div>
@@ -73,12 +208,34 @@ const ListingCarousel = () => {
       <div className={styles.carouselWrapper}>
         {/* Header */}
         <div className={styles.carouselHeader}>
-          <h1 className={styles.carouselTitle}>Property Listings</h1>
+          <h1 className={styles.carouselTitle}>
+            {isFiltered ? 'Filtrelenmiş İlanlar' : 'Emlak İlanları'}
+          </h1>
           <div className={styles.carouselInfo}>
             <span className={styles.slideCounter}>
               {currentSlide + 1} / {totalSlides}
             </span>
+            <button onClick={handleRefresh} className={styles.refreshBtn} title="İlanları Yenile">
+              <RefreshCw size={16} />
+            </button>
           </div>
+        </div>
+
+        {/* Backend bilgisi */}
+        <div className={styles.dataSource}>
+          <span className={styles.dataSourceBadge}>
+            🌐 {isFiltered ? 'Filtrelenmiş' : 'Backend\'den Canlı'} Veriler
+          </span>
+          {lastUpdate && !isFiltered && (
+            <span className={styles.lastUpdate}>
+              Son güncelleme: {lastUpdate.toLocaleTimeString()}
+            </span>
+          )}
+          {isFiltered && (
+            <span className={styles.filterInfo}>
+              Filtreleme uygulandı
+            </span>
+          )}
         </div>
 
         {/* Carousel Content with Side Arrows */}
@@ -95,7 +252,7 @@ const ListingCarousel = () => {
           {/* Grid */}
           <div className={styles.listingsGrid}>
             {getCurrentSlideItems().map((listing) => (
-              <ListingCard key={listing.id} listing={listing} />
+              <ListingCard key={listing.ilanID || listing.id} listing={listing} />
             ))}
           </div>
           
@@ -110,20 +267,22 @@ const ListingCarousel = () => {
         </div>
 
         {/* Slide Indicators */}
-        <div className={styles.slideIndicators}>
-          {Array.from({ length: totalSlides }, (_, index) => (
-            <button
-              key={index}
-              onClick={() => setCurrentSlide(index)}
-              className={`${styles.indicator} ${index === currentSlide ? styles.active : ''}`}
-            />
-          ))}
-        </div>
+        {totalSlides > 1 && (
+          <div className={styles.slideIndicators}>
+            {Array.from({ length: totalSlides }, (_, index) => (
+              <button
+                key={index}
+                onClick={() => setCurrentSlide(index)}
+                className={`${styles.indicator} ${index === currentSlide ? styles.active : ''}`}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Summary */}
         <div className={styles.carouselSummary}>
           <p className={styles.summaryText}>
-            Showing {getCurrentSlideItems().length} of {listings.length} properties
+            {isFiltered ? 'Filtrelenmiş: ' : 'Toplam '}{displayListings.length} ilan • Sayfa {currentSlide + 1}/{totalSlides} • {getCurrentSlideItems().length} ilan gösteriliyor
           </p>
         </div>
       </div>
