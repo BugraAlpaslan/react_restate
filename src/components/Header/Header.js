@@ -1,11 +1,12 @@
-// src/components/Header/Header.js - Profil dropdown menüsü
+// src/components/Header/Header.js - Aktif arama özellikli
 import React, { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Plus, LogOut, User, ChevronDown, Heart, FileText, Search } from "lucide-react";
 import styles from "./Header.module.css";
 
 const Header = ({ user, onLogout, onSearch }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const profileRef = useRef(null);
@@ -26,17 +27,43 @@ const Header = ({ user, onLogout, onSearch }) => {
     navigate('/add-listing');
   };
 
+  // ⭐ Arama fonksiyonu - sadece ana sayfada çalışır
   const handleSearch = (e) => {
     const value = e.target.value;
     setSearchTerm(value);
     
-    // Debounced search
-    clearTimeout(window.searchTimeout);
-    window.searchTimeout = setTimeout(() => {
-      if (onSearch) {
+    // Sadece ana sayfadaysa arama yap
+    if (location.pathname === '/' && onSearch) {
+      // Debounced search
+      clearTimeout(window.searchTimeout);
+      window.searchTimeout = setTimeout(() => {
+        console.log('🔍 Header arama:', value);
         onSearch(value);
+      }, 300);
+    }
+  };
+
+  // ⭐ Enter tuşuyla arama
+  const handleSearchKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      // Eğer ana sayfada değilse ana sayfaya git ve arama yap
+      if (location.pathname !== '/') {
+        navigate(`/?search=${encodeURIComponent(searchTerm)}`);
+      } else if (onSearch) {
+        onSearch(searchTerm);
       }
-    }, 300);
+    }
+  };
+
+  // ⭐ Arama ikonuna tıklama
+  const handleSearchIconClick = () => {
+    if (searchTerm.trim()) {
+      if (location.pathname !== '/') {
+        navigate(`/?search=${encodeURIComponent(searchTerm)}`);
+      } else if (onSearch) {
+        onSearch(searchTerm);
+      }
+    }
   };
 
   const handleLogout = () => {
@@ -118,6 +145,15 @@ const Header = ({ user, onLogout, onSearch }) => {
     return null;
   };
 
+  // ⭐ Arama placeholder'ını sayfaya göre değiştir
+  const getSearchPlaceholder = () => {
+    if (location.pathname === '/') {
+      return "İlan ara (başlık, konum, açıklama)...";
+    } else {
+      return "Ana sayfada arama yapmak için Enter'a basın...";
+    }
+  };
+
   return (
     <header className={styles.header}>
       <div className={styles.headerContent}>
@@ -129,15 +165,23 @@ const Header = ({ user, onLogout, onSearch }) => {
           İlan Ekle
         </button>
         
+        {/* ⭐ Aktif Arama Kutusu */}
         <div className={styles.searchContainer}>
           <input 
             className={styles.search} 
             type="text" 
-            placeholder="İlan ara (başlık, konum, açıklama)..." 
+            placeholder={getSearchPlaceholder()}
             value={searchTerm}
             onChange={handleSearch}
+            onKeyPress={handleSearchKeyPress}
           />
-          <Search size={20} className={styles.searchIcon} />
+          <button 
+            className={styles.searchIcon}
+            onClick={handleSearchIconClick}
+            title="Ara"
+          >
+            <Search size={20} />
+          </button>
         </div>
         
         <div className={styles.userSection} ref={profileRef}>

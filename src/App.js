@@ -1,4 +1,4 @@
-// src/App.js - Import hatası düzeltilmiş
+// src/App.js - Düzeltilmiş import'lar
 import React, { useState, useEffect, useCallback } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Sidebar from "./components/sidebar/Sidebar";
@@ -6,29 +6,32 @@ import Header from "./components/Header/Header";
 import ListingCarousel from "./components/ListingCarousel/ListingCarousel";
 import AddListing from "./components/AddListing/AddListing";
 import ListingDetail from "./components/ListingDetail/ListingDetail";
-import MyFavorites from "./components/MyFavorites/MyFavorites"; // ⭐ Bu import'ta sorun var
+import MyFavorites from "./components/MyFavorites/MyFavorites";
 import MyListings from "./components/MyListings/MyListings";
 import Login from "./components/Login/Login";
+import EditListing from "./components/EditListing/EditListing"; // ✅ DOĞRU import
 import styles from "./App.module.css";
 
-// ⭐ Güncellenmiş Ana sayfa komponenti - Header'dan arama desteği
+// ❌ Bu satırları SİLİN (eğer varsa):
+// import EditListing from "./EditListing/EditListing";
+// import styles from "../AddListing/AddListing.module.css";
+// import styles from "./EditListing.module.css";
+
+// Ana sayfa komponenti
 const HomePage = () => {
   const [filteredListings, setFilteredListings] = useState([]);
   const [isFiltered, setIsFiltered] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // ⭐ Filter değişikliklerini handle et
   const handleFiltersChange = useCallback(async (filters) => {
     try {
       setLoading(true);
       console.log('🔍 HomePage: Filtreler uygulanıyor', filters);
       
-      // ⭐ Backend'de filter endpoint'i yoksa basit filtreleme
       const response = await fetch('http://localhost:8080/api/listings');
       const data = await response.json();
       
       if (data.success) {
-        // Client-side filtreleme (backend endpoint yoksa)
         let filtered = data.data;
         
         if (filters.searchTerm) {
@@ -73,7 +76,6 @@ const HomePage = () => {
     }
   }, []);
 
-  // ⭐ Arama işlemini handle et (Header'dan gelecek)
   const handleSearch = useCallback(async (searchTerm) => {
     try {
       setLoading(true);
@@ -110,24 +112,12 @@ const HomePage = () => {
   }, []);
 
   return (
-    <div className={styles.main} style={{ 
-      display: 'flex', 
-      flex: 1, 
-      height: 'calc(100vh - 120px)' 
-    }}>
+    <div className={styles.main}>
       <Sidebar 
         onFiltersChange={handleFiltersChange}
         onSearch={handleSearch}
       />
-      <div className={styles.content} style={{ 
-        flex: 1, 
-        padding: '40px', 
-        overflowY: 'auto',
-        background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.1) 100%)',
-        backdropFilter: 'blur(30px) saturate(150%)',
-        borderLeft: '1px solid rgba(201, 169, 110, 0.08)',
-        position: 'relative'
-      }}>
+      <div className={styles.content}>
         <ListingCarousel 
           customListings={isFiltered ? filteredListings : null}
           loading={loading}
@@ -143,15 +133,12 @@ const App = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // ⭐ Login durumunu kontrol et
   const checkLoginStatus = () => {
     try {
       const loggedIn = localStorage.getItem('isLoggedIn');
       const userData = localStorage.getItem('user');
       
       console.log('🔍 Login durumu kontrol ediliyor...');
-      console.log('📱 localStorage isLoggedIn:', loggedIn);
-      console.log('📱 localStorage user:', userData);
       
       if (loggedIn === 'true' && userData) {
         const parsedUser = JSON.parse(userData);
@@ -173,14 +160,12 @@ const App = () => {
     }
   };
 
-  // ⭐ Component mount'ta ve localStorage değişikliklerinde kontrol et
   useEffect(() => {
     console.log('🚀 App component yüklendi');
     
     checkLoginStatus();
     setLoading(false);
 
-    // ⭐ localStorage değişikliklerini dinle
     const handleStorageChange = (e) => {
       if (e.key === 'isLoggedIn' || e.key === 'user') {
         console.log('📱 localStorage değişti, login durumu güncelleniyor...');
@@ -190,7 +175,6 @@ const App = () => {
 
     window.addEventListener('storage', handleStorageChange);
     
-    // ⭐ Sayfa focus'ta da kontrol et (tab değişimlerinde)
     const handleFocus = () => {
       console.log('👁️ Sayfa focus aldı, login durumu kontrol ediliyor...');
       checkLoginStatus();
@@ -198,23 +182,19 @@ const App = () => {
 
     window.addEventListener('focus', handleFocus);
 
-    // Cleanup
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('focus', handleFocus);
     };
   }, []);
 
-  // ⭐ Manual refresh function (Header'dan çağırılabilir)
   const refreshLoginStatus = () => {
     console.log('🔄 Manual login durumu yenileniyor...');
     checkLoginStatus();
   };
 
-  // ⭐ Header arama handler'ı - sadece ana sayfada çalışacak
   const handleHeaderSearch = useCallback(async (searchTerm) => {
     console.log("🔍 Header'dan arama:", searchTerm);
-    // Bu fonksiyon sadece HomePage'de aktif olacak
   }, []);
 
   if (loading) {
@@ -235,7 +215,6 @@ const App = () => {
     );
   }
 
-  // ⭐ Giriş yapılmamışsa login sayfasını göster
   if (!isLoggedIn) {
     console.log('🔐 Login sayfası gösteriliyor');
     return (
@@ -245,7 +224,6 @@ const App = () => {
     );
   }
 
-  // ⭐ Giriş yapılmışsa ana uygulamayı göster
   console.log('🏠 Ana uygulama gösteriliyor, kullanıcı:', user?.username);
   
   return (
@@ -288,7 +266,7 @@ const App = () => {
             </>
           } />
           
-          {/* ⭐ Favori ilanlar sayfası */}
+          {/* Favori ilanlar sayfası */}
           <Route path="/my-favorites" element={
             <>
               <Header 
@@ -300,7 +278,7 @@ const App = () => {
             </>
           } />
           
-          {/* ⭐ Kullanıcının ilanları sayfası */}
+          {/* Kullanıcının ilanları sayfası */}
           <Route path="/my-listings" element={
             <>
               <Header 
@@ -312,7 +290,7 @@ const App = () => {
             </>
           } />
           
-          {/* ⭐ İlan düzenleme sayfası (gelecekte eklenecek) */}
+          {/* ✅ İlan düzenleme sayfası - Artık çalışıyor */}
           <Route path="/edit-listing/:id" element={
             <>
               <Header 
@@ -320,31 +298,7 @@ const App = () => {
                 onLogout={refreshLoginStatus}
                 onSearch={handleHeaderSearch}
               />
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                height: '60vh',
-                color: '#c9a96e',
-                flexDirection: 'column',
-                gap: '16px'
-              }}>
-                <h2>İlan Düzenleme</h2>
-                <p>Bu özellik henüz tamamlanmamıştır.</p>
-                <button 
-                  onClick={() => window.history.back()}
-                  style={{
-                    padding: '12px 24px',
-                    background: 'rgba(32, 32, 32, 0.9)',
-                    border: '1px solid rgba(201, 169, 110, 0.3)',
-                    borderRadius: '12px',
-                    color: 'rgba(230, 200, 148, 0.95)',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Geri Dön
-                </button>
-              </div>
+              <EditListing />
             </>
           } />
         </Routes>
