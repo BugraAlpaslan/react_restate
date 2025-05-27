@@ -1,4 +1,4 @@
-// src/components/ListingDetail/ListingDetail.js - Sadece Backend Favori
+// src/components/ListingDetail/ListingDetail.js - Backend Resimleri
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
@@ -19,14 +19,58 @@ const ListingDetail = () => {
   const mapRef = useRef(null);
   const googleMapRef = useRef(null);
 
-  // Mock resimler
-  const mockImages = [
-    'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&h=600&fit=crop',
-    'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&h=600&fit=crop',
-    'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&h=600&fit=crop',
-    'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&h=600&fit=crop',
-    'https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=800&h=600&fit=crop'
-  ];
+  // ⭐ Mock resimler yerine backend'den gelen resimleri kullan
+  const getListingImages = (listing) => {
+    console.log('🖼️ İlan resimleri işleniyor:', listing);
+    
+    let images = [];
+    
+    // 1. Backend'den gelen imageUrl (ana resim)
+    if (listing.imageUrl) {
+      images.push(listing.imageUrl);
+      console.log('📸 Ana resim eklendi:', listing.imageUrl);
+    }
+    
+    // 2. Backend'den gelen images array'i
+    if (listing.images && Array.isArray(listing.images)) {
+      listing.images.forEach(img => {
+        const imageUrl = typeof img === 'string' ? img : img.url;
+        if (imageUrl && !images.includes(imageUrl)) {
+          images.push(imageUrl);
+        }
+      });
+      console.log('📸 Array resimler eklendi:', listing.images.length);
+    }
+    
+    // 3. getImageUrls metodu varsa kullan
+    if (typeof listing.getImageUrls === 'function') {
+      const methodImages = listing.getImageUrls();
+      methodImages.forEach(img => {
+        if (img && !images.includes(img)) {
+          images.push(img);
+        }
+      });
+      console.log('📸 Method resimler eklendi:', methodImages.length);
+    }
+    
+    // 4. getImageUrl metodu varsa kullan (tek resim)
+    if (typeof listing.getImageUrl === 'function') {
+      const singleImage = listing.getImageUrl();
+      if (singleImage && !images.includes(singleImage)) {
+        images.push(singleImage);
+      }
+      console.log('📸 Single method resim eklendi:', singleImage);
+    }
+    
+    // 5. Hiç resim yoksa default ekle
+    if (images.length === 0) {
+      images.push('https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&h=600&fit=crop');
+      console.log('📸 Default resim eklendi');
+    }
+    
+    console.log('✅ Toplam resim sayısı:', images.length);
+    return images;
+  };
 
   // ⭐ Kullanıcı bilgisini al
   useEffect(() => {
@@ -61,6 +105,9 @@ const ListingDetail = () => {
       if (result.success && result.data) {
         const fetchedListing = result.data;
         
+        // ⭐ Resim verilerini backend'den al
+        const listingImages = getListingImages(fetchedListing);
+        
         const adaptedListing = {
           ...fetchedListing,
           title: fetchedListing.ismi || fetchedListing.title,
@@ -84,13 +131,14 @@ const ListingDetail = () => {
           createdAt: fetchedListing.createdAt || new Date().toISOString(),
           viewCount: fetchedListing.viewCount || Math.floor(Math.random() * 500) + 50,
           features: fetchedListing.features || ['Asansör', 'Güvenlik', 'Otopark'],
-          images: mockImages,
+          images: listingImages, // ⭐ Backend'den gelen gerçek resimler
           address: fetchedListing.konum || `${fetchedListing.city}, ${fetchedListing.district}, İstanbul` || 'Şişli, İstanbul',
           coordinates: fetchedListing.coordinates || null
         };
         
         setListing(adaptedListing);
         console.log('✅ İlan detayı başarıyla yüklendi:', adaptedListing.title);
+        console.log('🖼️ Resimler:', adaptedListing.images);
         
       } else {
         throw new Error(result.message || 'İlan bulunamadı');
@@ -418,6 +466,12 @@ const ListingDetail = () => {
     navigate('/');
   };
 
+  // ⭐ Resim hatası durumunda fallback
+  const handleImageError = (e) => {
+    console.log('❌ Resim yüklenemedi:', e.target.src);
+    e.target.src = 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&h=600&fit=crop';
+  };
+
   // Loading durumu
   if (loading) {
     return (
@@ -487,18 +541,25 @@ const ListingDetail = () => {
       <div className={styles.scrollableContent}>
         <div className={styles.contentWrapper}>
           
-          {/* Fotoğraf Galeri */}
+          {/* ⭐ Fotoğraf Galeri - Backend Resimleri */}
           <div className={styles.photoSection}>
             <div className={styles.mainPhoto}>
               <img 
                 src={listing.images[selectedImage]}
                 alt={listing.title}
-                onError={(e) => {
-                  e.target.src = 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&h=600&fit=crop';
-                }}
+                onError={handleImageError}
               />
               <div className={styles.photoCounter}>
                 {selectedImage + 1} / {listing.images.length}
+              </div>
+              
+              {/* ⭐ Resim kaynağı göstergesi */}
+              <div className={styles.imageSource}>
+                {listing.images[selectedImage].includes('localhost:8080') ? (
+                  <span className={styles.backendImage}>📸 Backend</span>
+                ) : (
+                  <span className={styles.mockImage}>🖼️ Mock</span>
+                )}
               </div>
             </div>
 
@@ -512,10 +573,12 @@ const ListingDetail = () => {
                   <img 
                     src={image}
                     alt={`Preview ${index + 1}`}
-                    onError={(e) => {
-                      e.target.src = 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=150&h=150&fit=crop';
-                    }}
+                    onError={handleImageError}
                   />
+                  {/* ⭐ Önizleme resim kaynağı */}
+                  <div className={styles.previewSource}>
+                    {image.includes('localhost:8080') ? '📸' : '🖼️'}
+                  </div>
                 </div>
               ))}
             </div>

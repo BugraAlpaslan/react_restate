@@ -1,4 +1,4 @@
-/* src/components/Header/Header.module.css - Güncellenmiş stiller */
+/* src/components/Header/Header.module.css - Güncellenmiş arama stilleri */
 .header {
   height: 120px;
   display: flex;
@@ -85,7 +85,7 @@
     inset 0 1px 0 rgba(230, 200, 148, 0.08);
 }
 
-/* ⭐ Arama container */
+/* ⭐ Geliştirilmiş Arama Container */
 .searchContainer {
   flex: 1;
   max-width: 600px;
@@ -96,7 +96,7 @@
 
 .search {
   width: 100%;
-  padding: 20px 60px 20px 32px; /* Sağda icon için boşluk */
+  padding: 20px 120px 20px 32px; /* Sağda icon ve status için daha fazla boşluk */
   font-size: 17px;
   font-weight: 400;
   letter-spacing: -0.01em;
@@ -114,10 +114,22 @@
     inset 0 -1px 0 rgba(0, 0, 0, 0.2);
 }
 
+/* ⭐ İnaktif arama kutusu stili */
+.searchInactive {
+  border-color: rgba(201, 169, 110, 0.1) !important;
+  background: 
+    linear-gradient(135deg, rgba(0, 0, 0, 0.3) 0%, rgba(26, 26, 26, 0.2) 100%) !important;
+  color: rgba(201, 169, 110, 0.6) !important;
+}
+
 .search::placeholder {
   color: rgba(201, 169, 110, 0.4);
   font-weight: 300;
   letter-spacing: 0.01em;
+}
+
+.searchInactive::placeholder {
+  color: rgba(201, 169, 110, 0.3) !important;
 }
 
 .search:focus {
@@ -147,17 +159,70 @@
   color: rgba(212, 183, 138, 0.3);
 }
 
+/* ⭐ Geliştirilmiş Search Icon */
 .searchIcon {
   position: absolute;
-  right: 24px;
+  right: 80px; /* Status için yer bırak */
+  top: 50%;
+  transform: translateY(-50%);
   color: rgba(201, 169, 110, 0.5);
-  pointer-events: none;
-  transition: color 0.3s ease;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: none;
+  border: none;
+  padding: 8px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.searchIcon:hover {
+  color: rgba(212, 183, 138, 0.8);
+  background: rgba(201, 169, 110, 0.1);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.searchIcon:active {
+  color: rgba(230, 200, 148, 0.9);
+  background: rgba(201, 169, 110, 0.2);
+  transform: translateY(-50%) scale(0.95);
 }
 
 .searchContainer:hover .searchIcon,
 .search:focus + .searchIcon {
   color: rgba(212, 183, 138, 0.7);
+}
+
+/* ⭐ Arama Durumu Göstergesi */
+.searchStatus {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.7rem;
+  padding: 4px 8px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(201, 169, 110, 0.1);
+  transition: all 0.3s ease;
+}
+
+.searchStatus.active {
+  background: rgba(46, 125, 50, 0.2);
+  border-color: rgba(46, 125, 50, 0.3);
+}
+
+.statusActive {
+  color: rgba(76, 175, 80, 0.9);
+  font-weight: 600;
+}
+
+.statusInactive {
+  color: rgba(201, 169, 110, 0.5);
+  font-weight: 400;
 }
 
 /* ⭐ Profil section */
@@ -333,12 +398,17 @@
   }
   
   .search {
-    padding: 16px 50px 16px 20px;
+    padding: 16px 100px 16px 20px;
     font-size: 15px;
   }
   
   .searchIcon {
-    right: 16px;
+    right: 70px;
+  }
+  
+  .searchStatus {
+    right: 12px;
+    font-size: 0.65rem;
   }
   
   .profileBtn {
@@ -374,6 +444,21 @@
     min-width: 200px;
   }
   
+  .search {
+    padding: 14px 90px 14px 16px;
+    font-size: 14px;
+  }
+  
+  .searchIcon {
+    right: 60px;
+  }
+  
+  .searchStatus {
+    right: 8px;
+    font-size: 0.6rem;
+    padding: 2px 6px;
+  }
+  
   .userSection {
     order: 2;
   }
@@ -382,34 +467,4 @@
     right: -40px;
     min-width: 240px;
   }
-}
-/* Header.module.css'e eklenecek/düzeltilecek Search Icon stilleri */
-
-.searchIcon {
-  position: absolute;
-  right: 24px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: rgba(201, 169, 110, 0.5);
-  cursor: pointer;
-  transition: color 0.3s ease;
-  background: none;
-  border: none;
-  padding: 8px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.searchIcon:hover,
-.search:focus + .searchIcon {
-  color: rgba(212, 183, 138, 0.7);
-  background: rgba(201, 169, 110, 0.1);
-}
-
-.searchIcon:active {
-  color: rgba(230, 200, 148, 0.9);
-  background: rgba(201, 169, 110, 0.2);
-  transform: translateY(-50%) scale(0.95);
 }

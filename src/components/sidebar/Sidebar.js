@@ -1,12 +1,12 @@
-// src/components/Sidebar/Sidebar.js - Filtreleme entegrasyonu
+// src/components/Sidebar/Sidebar.js - Arama kaldırıldı, sadece filtreler
 import React, { useState, useEffect } from "react";
-import { ChevronDown, ChevronUp, Search, X, Filter } from "lucide-react";
+import { ChevronDown, ChevronUp, X, Filter } from "lucide-react";
 import styles from "./Sidebar.module.css";
 
-const Sidebar = ({ onFiltersChange, onSearch }) => {
+const Sidebar = ({ onFiltersChange, globalSearchTerm }) => {
   const [openSections, setOpenSections] = useState({
-    search: true,  // Arama bölümü açık başlasın
-    price: false,
+    // Arama bölümü kaldırıldı
+    price: true,      // Fiyat varsayılan açık
     location: false,
     rooms: false,
     area: false,
@@ -15,8 +15,7 @@ const Sidebar = ({ onFiltersChange, onSearch }) => {
   });
 
   const [filters, setFilters] = useState({
-    // Arama
-    searchTerm: '',
+    // Arama terimi kaldırıldı - global search'ten gelecek
     
     // Fiyat
     minPrice: '',
@@ -74,6 +73,21 @@ const Sidebar = ({ onFiltersChange, onSearch }) => {
     fetchFilterOptions();
   }, []);
 
+  // ⭐ Global search term değiştiğinde filtreleri güncelle
+  useEffect(() => {
+    if (globalSearchTerm) {
+      // Global search varsa filterları uygula
+      const combinedFilters = {
+        ...filters,
+        searchTerm: globalSearchTerm
+      };
+      applyFilters(combinedFilters);
+    } else {
+      // Global search yoksa sadece mevcut filtreleri uygula
+      applyFilters(filters);
+    }
+  }, [globalSearchTerm]);
+
   const toggleSection = (section) => {
     setOpenSections(prev => ({
       ...prev,
@@ -89,7 +103,11 @@ const Sidebar = ({ onFiltersChange, onSearch }) => {
     // Debounce ile parent'a bildir
     clearTimeout(window.filterTimeout);
     window.filterTimeout = setTimeout(() => {
-      applyFilters(newFilters);
+      // Global search term'i de ekle
+      const combinedFilters = globalSearchTerm 
+        ? { ...newFilters, searchTerm: globalSearchTerm }
+        : newFilters;
+      applyFilters(combinedFilters);
     }, 500);
   };
 
@@ -119,7 +137,7 @@ const Sidebar = ({ onFiltersChange, onSearch }) => {
         }
       });
 
-      console.log('🔍 Filtreler uygulanıyor:', cleanFilters);
+      console.log('🔍 Sidebar filtreleri uygulanıyor:', cleanFilters);
       await onFiltersChange(cleanFilters);
       
     } catch (error) {
@@ -129,18 +147,9 @@ const Sidebar = ({ onFiltersChange, onSearch }) => {
     }
   };
 
-  // ⭐ Arama işlemi
-  const handleSearch = (searchTerm) => {
-    if (onSearch) {
-      console.log('🔍 Arama yapılıyor:', searchTerm);
-      onSearch(searchTerm);
-    }
-  };
-
   // ⭐ Filtreleri temizle
   const clearFilters = () => {
     const defaultFilters = {
-      searchTerm: '',
       minPrice: '',
       maxPrice: '',
       city: '',
@@ -156,7 +165,13 @@ const Sidebar = ({ onFiltersChange, onSearch }) => {
     };
     
     setFilters(defaultFilters);
-    applyFilters(defaultFilters);
+    
+    // Global search varsa sadece onu uygula, yoksa tümünü temizle
+    const finalFilters = globalSearchTerm 
+      ? { searchTerm: globalSearchTerm }
+      : {};
+    
+    applyFilters(finalFilters);
     console.log('🗑️ Filtreler temizlendi');
   };
 
@@ -165,6 +180,13 @@ const Sidebar = ({ onFiltersChange, onSearch }) => {
     'Havuz', 'Asansör', 'Otopark', 'Güvenlik', 'Balkon', 'Teras',
     'Bahçe', 'Sauna', 'Spor Salonu', 'Jeneratör'
   ];
+
+  // Aktif filter sayısını hesapla
+  const getActiveFilterCount = () => {
+    return Object.values(filters).filter(v => 
+      v !== '' && v !== 'all' && !(Array.isArray(v) && v.length === 0)
+    ).length;
+  };
 
   return (
     <div className={styles.sidebar}>
@@ -176,32 +198,14 @@ const Sidebar = ({ onFiltersChange, onSearch }) => {
         {loading && <div className={styles.loadingSpinner}></div>}
       </div>
 
-      {/* Arama */}
-      <div className={styles.filter}>
-        <div 
-          className={styles.filterHeader} 
-          onClick={() => toggleSection('search')}
-        >
-          <span>🔍 Arama</span>
-          {openSections.search ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        </div>
-        {openSections.search && (
-          <div className={styles.filterContent}>
-            <div className={styles.searchBox}>
-              <input
-                type="text"
-                placeholder="İlan ara..."
-                value={filters.searchTerm}
-                onChange={(e) => {
-                  handleFilterChange('searchTerm', e.target.value);
-                  handleSearch(e.target.value);
-                }}
-              />
-              <Search size={16} className={styles.searchIcon} />
-            </div>
+      {/* ⭐ Global Search Bilgisi */}
+      {globalSearchTerm && (
+        <div className={styles.searchInfo}>
+          <div className={styles.searchBadge}>
+            🔍 "{globalSearchTerm}" aranıyor
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Fiyat */}
       <div className={styles.filter}>
@@ -429,9 +433,10 @@ const Sidebar = ({ onFiltersChange, onSearch }) => {
 
       {/* Filter Özeti */}
       <div className={styles.filterSummary}>
-        <p>Aktif filtreler: {Object.values(filters).filter(v => 
-          v !== '' && v !== 'all' && !(Array.isArray(v) && v.length === 0)
-        ).length}</p>
+        <p>
+          Aktif filtreler: {getActiveFilterCount()}
+          {globalSearchTerm && ' + Arama'}
+        </p>
       </div>
     </div>
   );

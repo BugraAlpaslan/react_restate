@@ -1,4 +1,4 @@
-// src/components/ListingCarousel/ListingCarousel.js - Backend entegrasyonu
+// src/components/ListingCarousel/ListingCarousel.js - Backend resimler düzeltmesi
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, RefreshCw, AlertCircle } from 'lucide-react';
@@ -43,6 +43,7 @@ const ListingCarousel = ({ customListings = null, loading: externalLoading = fal
         // İlk birkaç ilanın detayını log'la
         data.data.slice(0, 3).forEach((ilan, index) => {
           console.log(`${index + 1}. ${ilan.ismi} - ${ilan.fiyat}₺ (ID: ${ilan.ilanID})`);
+          console.log(`   🖼️ Resimler:`, ilan.getImageUrls ? ilan.getImageUrls() : [ilan.imageUrl || ilan.getImageUrl?.()]);
         });
         
       } else {
@@ -99,6 +100,50 @@ const ListingCarousel = ({ customListings = null, loading: externalLoading = fal
     console.log('🔄 İlanlar yeniden yükleniyor...');
     setCurrentSlide(0); // İlk sayfaya dön
     fetchListings();
+  };
+
+  // ⭐ İlan resim URL'ini al - backend'den gelen veriyi kullan
+  const getListingImageUrl = (listing) => {
+    console.log('🖼️ Resim URL alınıyor:', listing.ismi);
+    
+    // 1. Backend'den gelen imageUrl (ana resim)
+    if (listing.imageUrl) {
+      console.log('📸 Ana resim kullanıldı:', listing.imageUrl);
+      return listing.imageUrl;
+    }
+    
+    // 2. getImageUrl metodu varsa kullan
+    if (typeof listing.getImageUrl === 'function') {
+      const methodImage = listing.getImageUrl();
+      if (methodImage) {
+        console.log('📸 Method resmi kullanıldı:', methodImage);
+        return methodImage;
+      }
+    }
+    
+    // 3. getImageUrls array'inin ilk elemanı
+    if (typeof listing.getImageUrls === 'function') {
+      const imageArray = listing.getImageUrls();
+      if (imageArray && imageArray.length > 0) {
+        console.log('📸 Array ilk resmi kullanıldı:', imageArray[0]);
+        return imageArray[0];
+      }
+    }
+    
+    // 4. images array'i varsa ilk elemanı
+    if (listing.images && Array.isArray(listing.images) && listing.images.length > 0) {
+      const firstImage = typeof listing.images[0] === 'string' 
+        ? listing.images[0] 
+        : listing.images[0].url;
+      if (firstImage) {
+        console.log('📸 Images array kullanıldı:', firstImage);
+        return firstImage;
+      }
+    }
+    
+    // 5. Default resim
+    console.log('📸 Default resim kullanıldı');
+    return 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&h=300&fit=crop';
   };
 
   // Loading durumu
@@ -161,47 +206,60 @@ const ListingCarousel = ({ customListings = null, loading: externalLoading = fal
     );
   }
 
-  const ListingCard = ({ listing }) => (
-    <div className={styles.listingCard}>
-      <div className={styles.listingImageContainer}>
-        <img
-          src={listing.imageUrl || listing.getImageUrl?.() || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&h=300&fit=crop'}
-          alt={listing.ismi || listing.title}
-          className={styles.listingImage}
-          onError={(e) => {
-            e.target.src = 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&h=300&fit=crop';
-          }}
-        />
-      </div>
-      <div className={styles.listingContent}>
-        <h3 className={styles.listingTitle}>
-          {listing.ismi || listing.title}
-        </h3>
-        <p className={styles.listingDescription}>
-          {listing.aciklama || listing.description}
-        </p>
-        <div className={styles.listingMeta}>
-          <span className={styles.listingLocation}>
-            📍 {listing.city}/{listing.district}
-          </span>
-          <span className={styles.listingSpecs}>
-            🏠 {listing.odaSayisi || listing.bedrooms}+1 • 🛁 {listing.bathrooms} • 📐 {listing.m2 || listing.area}m²
-          </span>
+  const ListingCard = ({ listing }) => {
+    // ⭐ Resim URL'ini al
+    const imageUrl = getListingImageUrl(listing);
+    const isBackendImage = imageUrl.includes('localhost:8080');
+    
+    return (
+      <div className={styles.listingCard}>
+        <div className={styles.listingImageContainer}>
+          <img
+            src={imageUrl}
+            alt={listing.ismi || listing.title}
+            className={styles.listingImage}
+            onError={(e) => {
+              console.log('❌ Resim yüklenemedi:', e.target.src);
+              e.target.src = 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&h=300&fit=crop';
+            }}
+          />
+          
+          {/* ⭐ Resim kaynağı göstergesi */}
+          <div className={`${styles.imageSource} ${isBackendImage ? styles.backendBadge : styles.mockBadge}`}>
+            {isBackendImage ? '📸 Backend' : '🖼️ Mock'}
+          </div>
         </div>
-        <div className={styles.listingFooter}>
-          <span className={styles.listingPrice}>
-            {listing.fiyat ? `${listing.fiyat.toLocaleString()}₺` : listing.price}
-          </span>
-          <button 
-            className={styles.listingBtn}
-            onClick={() => handleViewDetails(listing.ilanID || listing.id)}
-          >
-            Detayları Gör
-          </button>
+        
+        <div className={styles.listingContent}>
+          <h3 className={styles.listingTitle}>
+            {listing.ismi || listing.title}
+          </h3>
+          <p className={styles.listingDescription}>
+            {listing.aciklama || listing.description}
+          </p>
+          <div className={styles.listingMeta}>
+            <span className={styles.listingLocation}>
+              📍 {listing.city}/{listing.district}
+            </span>
+            <span className={styles.listingSpecs}>
+              🏠 {listing.odaSayisi || listing.bedrooms}+1 • 🛁 {listing.bathrooms} • 📐 {listing.m2 || listing.area}m²
+            </span>
+          </div>
+          <div className={styles.listingFooter}>
+            <span className={styles.listingPrice}>
+              {listing.fiyat ? `${listing.fiyat.toLocaleString()}₺` : listing.price}
+            </span>
+            <button 
+              className={styles.listingBtn}
+              onClick={() => handleViewDetails(listing.ilanID || listing.id)}
+            >
+              Detayları Gör
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className={styles.carouselContainer}>

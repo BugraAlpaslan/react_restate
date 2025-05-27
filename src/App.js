@@ -1,4 +1,4 @@
-// src/App.js - Düzeltilmiş import'lar
+// src/App.js - Düzeltilmiş Arama Sistemi
 import React, { useState, useEffect, useCallback } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Sidebar from "./components/sidebar/Sidebar";
@@ -9,19 +9,60 @@ import ListingDetail from "./components/ListingDetail/ListingDetail";
 import MyFavorites from "./components/MyFavorites/MyFavorites";
 import MyListings from "./components/MyListings/MyListings";
 import Login from "./components/Login/Login";
-import EditListing from "./components/EditListing/EditListing"; // ✅ DOĞRU import
+import EditListing from "./components/EditListing/EditListing";
 import styles from "./App.module.css";
 
-// ❌ Bu satırları SİLİN (eğer varsa):
-// import EditListing from "./EditListing/EditListing";
-// import styles from "../AddListing/AddListing.module.css";
-// import styles from "./EditListing.module.css";
-
 // Ana sayfa komponenti
-const HomePage = () => {
+const HomePage = ({ globalSearchTerm, onGlobalSearchChange }) => {
   const [filteredListings, setFilteredListings] = useState([]);
   const [isFiltered, setIsFiltered] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // ⭐ Global arama terimi değiştiğinde arama yap
+  useEffect(() => {
+    if (globalSearchTerm) {
+      handleSearch(globalSearchTerm);
+    } else {
+      // Arama temizlenirse filtreyi sıfırla
+      setFilteredListings([]);
+      setIsFiltered(false);
+    }
+  }, [globalSearchTerm]);
+
+  // ⭐ Birleştirilmiş arama fonksiyonu
+  const handleSearch = useCallback(async (searchTerm) => {
+    if (!searchTerm || searchTerm.trim() === '') {
+      setFilteredListings([]);
+      setIsFiltered(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      console.log('🔍 Arama yapılıyor:', searchTerm);
+      
+      const response = await fetch('http://localhost:8080/api/listings');
+      const data = await response.json();
+      
+      if (data.success) {
+        const filtered = data.data.filter(listing => 
+          (listing.ismi || listing.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (listing.aciklama || listing.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (listing.city || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (listing.district || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (listing.konum || '').toLowerCase().includes(searchTerm.toLowerCase())
+        );
+        
+        setFilteredListings(filtered);
+        setIsFiltered(true);
+        console.log(`✅ Arama tamamlandı: ${filtered.length} ilan bulundu`);
+      }
+    } catch (error) {
+      console.error('❌ Search API hatası:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const handleFiltersChange = useCallback(async (filters) => {
     try {
@@ -34,6 +75,7 @@ const HomePage = () => {
       if (data.success) {
         let filtered = data.data;
         
+        // Filtreleme mantığı
         if (filters.searchTerm) {
           filtered = filtered.filter(listing => 
             (listing.ismi || listing.title || '').toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
@@ -76,46 +118,12 @@ const HomePage = () => {
     }
   }, []);
 
-  const handleSearch = useCallback(async (searchTerm) => {
-    try {
-      setLoading(true);
-      console.log('🔍 HomePage: Arama yapılıyor', searchTerm);
-      
-      const response = await fetch('http://localhost:8080/api/listings');
-      const data = await response.json();
-      
-      if (data.success) {
-        if (searchTerm.trim()) {
-          const filtered = data.data.filter(listing => 
-            (listing.ismi || listing.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (listing.aciklama || listing.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (listing.city || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (listing.district || '').toLowerCase().includes(searchTerm.toLowerCase())
-          );
-          
-          setFilteredListings(filtered);
-          setIsFiltered(true);
-          console.log(`✅ Arama tamamlandı: ${filtered.length} ilan bulundu`);
-        } else {
-          setFilteredListings([]);
-          setIsFiltered(false);
-          console.log('🔍 Arama temizlendi, tüm ilanlar gösteriliyor');
-        }
-      } else {
-        console.error('❌ Arama hatası:', data.message);
-      }
-    } catch (error) {
-      console.error('❌ Search API hatası:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   return (
     <div className={styles.main}>
       <Sidebar 
         onFiltersChange={handleFiltersChange}
         onSearch={handleSearch}
+        globalSearchTerm={globalSearchTerm}
       />
       <div className={styles.content}>
         <ListingCarousel 
@@ -132,6 +140,9 @@ const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  // ⭐ Global arama state'i
+  const [globalSearchTerm, setGlobalSearchTerm] = useState('');
 
   const checkLoginStatus = () => {
     try {
@@ -193,8 +204,10 @@ const App = () => {
     checkLoginStatus();
   };
 
-  const handleHeaderSearch = useCallback(async (searchTerm) => {
-    console.log("🔍 Header'dan arama:", searchTerm);
+  // ⭐ Header'dan gelen arama işlemi - düzeltildi
+  const handleHeaderSearch = useCallback((searchTerm) => {
+    console.log("🔍 Header'dan arama geldi:", searchTerm);
+    setGlobalSearchTerm(searchTerm);
   }, []);
 
   if (loading) {
@@ -230,73 +243,78 @@ const App = () => {
     <Router>
       <div className={styles.app}>
         <Routes>
-          {/* Ana sayfa */}
+          {/* Ana sayfa - Global search prop'ları geç */}
           <Route path="/" element={
             <>
               <Header 
                 user={user} 
                 onLogout={refreshLoginStatus}
                 onSearch={handleHeaderSearch}
+                searchTerm={globalSearchTerm}
               />
-              <HomePage />
+              <HomePage 
+                globalSearchTerm={globalSearchTerm}
+                onGlobalSearchChange={setGlobalSearchTerm}
+              />
             </>
           } />
           
-          {/* İlan ekleme sayfası */}
+          {/* Diğer sayfalar */}
           <Route path="/add-listing" element={
             <>
               <Header 
                 user={user} 
                 onLogout={refreshLoginStatus}
                 onSearch={handleHeaderSearch}
+                searchTerm={globalSearchTerm}
               />
               <AddListing />
             </>
           } />
           
-          {/* İlan detay sayfası */}
           <Route path="/listing/:id" element={
             <>
               <Header 
                 user={user} 
                 onLogout={refreshLoginStatus}
                 onSearch={handleHeaderSearch}
+                searchTerm={globalSearchTerm}
               />
               <ListingDetail />
             </>
           } />
           
-          {/* Favori ilanlar sayfası */}
           <Route path="/my-favorites" element={
             <>
               <Header 
                 user={user} 
                 onLogout={refreshLoginStatus}
                 onSearch={handleHeaderSearch}
+                searchTerm={globalSearchTerm}
               />
               <MyFavorites />
             </>
           } />
           
-          {/* Kullanıcının ilanları sayfası */}
           <Route path="/my-listings" element={
             <>
               <Header 
                 user={user} 
                 onLogout={refreshLoginStatus}
                 onSearch={handleHeaderSearch}
+                searchTerm={globalSearchTerm}
               />
               <MyListings />
             </>
           } />
           
-          {/* ✅ İlan düzenleme sayfası - Artık çalışıyor */}
           <Route path="/edit-listing/:id" element={
             <>
               <Header 
                 user={user} 
                 onLogout={refreshLoginStatus}
                 onSearch={handleHeaderSearch}
+                searchTerm={globalSearchTerm}
               />
               <EditListing />
             </>
