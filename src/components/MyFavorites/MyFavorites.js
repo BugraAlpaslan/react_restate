@@ -1,4 +1,4 @@
-// src/components/MyFavorites/MyFavorites.js - Favori ilanlar sayfası
+// src/components/MyFavorites/MyFavorites.js - Sadece Backend
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -21,63 +21,41 @@ const MyFavorites = () => {
       if (userData) {
         const parsed = JSON.parse(userData);
         setUser(parsed);
+        console.log('👤 Kullanıcı:', parsed);
       }
     } catch (error) {
       console.error('❌ User data parse hatası:', error);
     }
   }, []);
 
-  // ⭐ Favori ilanları localStorage'dan yükle
+  // ⭐ Favori ilanları backend'den yükle
   const loadFavorites = async () => {
+    if (!user?.id) {
+      setError('Kullanıcı girişi gerekli');
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
 
-      // LocalStorage'dan favori ID'leri al
-      const favoriteIds = JSON.parse(localStorage.getItem('favoriteListings') || '[]');
-      
-      if (favoriteIds.length === 0) {
+      console.log('💖 Favori ilanlar backend\'den yükleniyor, User ID:', user.id);
+
+      const response = await fetch(`http://localhost:8080/api/favorites/user/${user.id}`);
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        setFavorites(result.data);
+        console.log(`✅ ${result.data.length} favori ilan yüklendi`);
+      } else {
         setFavorites([]);
-        setLoading(false);
-        return;
+        console.log('ℹ️ Kullanıcının hiç favori ilanı yok');
       }
-
-      console.log('💖 Favori ilanlar yükleniyor:', favoriteIds);
-
-      // Her favori için backend'den detay bilgisi çek
-      const favoritePromises = favoriteIds.map(async (id) => {
-        try {
-          const response = await fetch(`http://localhost:8080/api/listings/${id}`);
-          const result = await response.json();
-          
-          if (result.success && result.data) {
-            return {
-              ...result.data,
-              // Görüntüleme için uyarlama
-              title: result.data.ismi || result.data.title,
-              description: result.data.aciklama || result.data.description,
-              price: result.data.fiyat || result.data.price,
-              area: result.data.m2 || result.data.area,
-              bedrooms: result.data.odaSayisi || result.data.bedrooms,
-              location: result.data.konum || `${result.data.city}/${result.data.district}`
-            };
-          }
-          return null;
-        } catch (error) {
-          console.error(`❌ İlan ${id} yüklenemedi:`, error);
-          return null;
-        }
-      });
-
-      const favoriteListings = (await Promise.all(favoritePromises))
-        .filter(listing => listing !== null);
-
-      setFavorites(favoriteListings);
-      console.log(`✅ ${favoriteListings.length} favori ilan yüklendi`);
 
     } catch (error) {
       console.error('❌ Favori ilanlar yükleme hatası:', error);
-      setError(error.message);
+      setError('Backend ile bağlantı kurulamadı: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -85,26 +63,54 @@ const MyFavorites = () => {
 
   // Component mount'ta favori ilanları yükle
   useEffect(() => {
-    loadFavorites();
-  }, []);
+    if (user?.id) {
+      loadFavorites();
+    }
+  }, [user]);
 
-  // ⭐ Favorilerden çıkar
-  const removeFromFavorites = (listingId) => {
+  // ⭐ Favorilerden çıkar (sadece backend)
+  const removeFromFavorites = async (listingId) => {
+    if (!user?.id) {
+      alert('Kullanıcı girişi gerekli!');
+      return;
+    }
+
+    if (!window.confirm('Bu ilanı favorilerinizden çıkarmak istediğinizden emin misiniz?')) {
+      return;
+    }
+
     try {
-      const favoriteIds = JSON.parse(localStorage.getItem('favoriteListings') || '[]');
-      const updatedIds = favoriteIds.filter(id => id !== listingId);
-      
-      localStorage.setItem('favoriteListings', JSON.stringify(updatedIds));
-      
-      // State'i güncelle
-      setFavorites(prev => prev.filter(listing => 
-        (listing.ilanID || listing.id) !== listingId
-      ));
-      
-      console.log('💔 Favorilerden çıkarıldı:', listingId);
-      
+      console.log('💔 Favorilerden çıkarılıyor:', listingId);
+
+      const response = await fetch('http://localhost:8080/api/favorites/remove', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          listingId: listingId
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // State'den çıkar
+        setFavorites(prev => prev.filter(listing => 
+          (listing.ilanID || listing.id) !== listingId
+        ));
+        
+        console.log('✅ Backend\'den favorilerden çıkarıldı:', listingId);
+        alert('💔 İlan favorilerinizden çıkarıldı!');
+        
+      } else {
+        alert('❌ Favori çıkarma işlemi başarısız: ' + result.message);
+      }
+
     } catch (error) {
-      console.error('❌ Favorilerden çıkarma hatası:', error);
+      console.error('❌ Favori çıkarma hatası:', error);
+      alert('❌ Sunucu ile bağlantı kurulamadı!');
     }
   };
 
@@ -114,11 +120,43 @@ const MyFavorites = () => {
   };
 
   // ⭐ Tüm favorileri temizle
-  const clearAllFavorites = () => {
-    if (window.confirm('Tüm favori ilanlarınızı silmek istediğinizden emin misiniz?')) {
-      localStorage.removeItem('favoriteListings');
+  const clearAllFavorites = async () => {
+    if (!user?.id) {
+      alert('Kullanıcı girişi gerekli!');
+      return;
+    }
+
+    if (!window.confirm('Tüm favori ilanlarınızı silmek istediğinizden emin misiniz?')) {
+      return;
+    }
+
+    try {
+      console.log('🗑️ Tüm favoriler temizleniyor...');
+
+      // Her favori için backend'den sil
+      const deletePromises = favorites.map(async (listing) => {
+        const listingId = listing.ilanID || listing.id;
+        return fetch('http://localhost:8080/api/favorites/remove', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: user.id,
+            listingId: listingId
+          })
+        });
+      });
+
+      await Promise.all(deletePromises);
+      
       setFavorites([]);
-      console.log('🗑️ Tüm favoriler temizlendi');
+      console.log('✅ Tüm favoriler backend\'den temizlendi');
+      alert('🗑️ Tüm favori ilanlarınız silindi!');
+
+    } catch (error) {
+      console.error('❌ Tüm favorileri temizleme hatası:', error);
+      alert('❌ Sunucu ile bağlantı kurulamadı!');
     }
   };
 
@@ -128,7 +166,7 @@ const MyFavorites = () => {
         <div className={styles.loading}>
           <div className={styles.spinner}></div>
           <h2>Favori ilanlarınız yükleniyor...</h2>
-          <p>Veriler getiriliyor</p>
+          <p>Backend'den veriler getiriliyor</p>
         </div>
       </div>
     );
@@ -205,8 +243,8 @@ const MyFavorites = () => {
               <div key={listing.ilanID || listing.id} className={styles.favoriteCard}>
                 <div className={styles.imageContainer}>
                   <img
-                    src={listing.imageUrl || listing.getImageUrl?.() || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&h=300&fit=crop'}
-                    alt={listing.title}
+                    src={listing.imageUrl || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&h=300&fit=crop'}
+                    alt={listing.title || listing.ismi}
                     className={styles.listingImage}
                     onError={(e) => {
                       e.target.src = 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&h=300&fit=crop';
@@ -222,21 +260,21 @@ const MyFavorites = () => {
                 </div>
 
                 <div className={styles.cardContent}>
-                  <h3 className={styles.listingTitle}>{listing.title}</h3>
+                  <h3 className={styles.listingTitle}>{listing.title || listing.ismi}</h3>
                   
                   <div className={styles.listingLocation}>
                     <MapPin size={14} />
-                    <span>{listing.location}</span>
+                    <span>{listing.location || listing.konum}</span>
                   </div>
 
                   <p className={styles.listingDescription}>
-                    {listing.description}
+                    {listing.description || listing.aciklama}
                   </p>
 
                   <div className={styles.listingSpecs}>
                     <div className={styles.spec}>
                       <Home size={14} />
-                      <span>{listing.bedrooms}+1</span>
+                      <span>{listing.bedrooms || listing.odaSayisi}+1</span>
                     </div>
                     <div className={styles.spec}>
                       <Bath size={14} />
@@ -244,19 +282,19 @@ const MyFavorites = () => {
                     </div>
                     <div className={styles.spec}>
                       <Maximize size={14} />
-                      <span>{listing.area} m²</span>
+                      <span>{listing.area || listing.m2} m²</span>
                     </div>
                     <div className={styles.spec}>
                       <Calendar size={14} />
-                      <span>{listing.buildingAge || 0} yaş</span>
+                      <span>{listing.buildingAge || listing.binaYasi || 0} yaş</span>
                     </div>
                   </div>
 
                   <div className={styles.cardFooter}>
                     <div className={styles.price}>
-                      {typeof listing.price === 'number' 
-                        ? `${listing.price.toLocaleString()}₺/ay` 
-                        : listing.price
+                      {typeof (listing.price || listing.fiyat) === 'number' 
+                        ? `${(listing.price || listing.fiyat).toLocaleString()}₺/ay` 
+                        : (listing.price || listing.fiyat)
                       }
                     </div>
                     

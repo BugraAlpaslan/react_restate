@@ -1,4 +1,4 @@
-// src/App.js - Güncellenmiş routes ve profil özellikli
+// src/App.js - Import hatası düzeltilmiş
 import React, { useState, useEffect, useCallback } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Sidebar from "./components/sidebar/Sidebar";
@@ -6,7 +6,7 @@ import Header from "./components/Header/Header";
 import ListingCarousel from "./components/ListingCarousel/ListingCarousel";
 import AddListing from "./components/AddListing/AddListing";
 import ListingDetail from "./components/ListingDetail/ListingDetail";
-import MyFavorites from "./components/MyFavorites/MyFavorites";
+import MyFavorites from "./components/MyFavorites/MyFavorites"; // ⭐ Bu import'ta sorun var
 import MyListings from "./components/MyListings/MyListings";
 import Login from "./components/Login/Login";
 import styles from "./App.module.css";
@@ -22,20 +22,47 @@ const HomePage = () => {
     try {
       setLoading(true);
       console.log('🔍 HomePage: Filtreler uygulanıyor', filters);
-      const response = await fetch('http://localhost:8080/api/listings/filter', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(filters),
-      });
+      
+      // ⭐ Backend'de filter endpoint'i yoksa basit filtreleme
+      const response = await fetch('http://localhost:8080/api/listings');
       const data = await response.json();
       
       if (data.success) {
-        setFilteredListings(data.data);
+        // Client-side filtreleme (backend endpoint yoksa)
+        let filtered = data.data;
+        
+        if (filters.searchTerm) {
+          filtered = filtered.filter(listing => 
+            (listing.ismi || listing.title || '').toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
+            (listing.aciklama || listing.description || '').toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
+            (listing.city || '').toLowerCase().includes(filters.searchTerm.toLowerCase())
+          );
+        }
+        
+        if (filters.minPrice) {
+          filtered = filtered.filter(listing => (listing.fiyat || listing.price) >= parseInt(filters.minPrice));
+        }
+        
+        if (filters.maxPrice) {
+          filtered = filtered.filter(listing => (listing.fiyat || listing.price) <= parseInt(filters.maxPrice));
+        }
+        
+        if (filters.city) {
+          filtered = filtered.filter(listing => 
+            (listing.city || '').toLowerCase().includes(filters.city.toLowerCase())
+          );
+        }
+        
+        if (filters.bedrooms) {
+          filtered = filtered.filter(listing => 
+            (listing.odaSayisi || listing.bedrooms) >= parseInt(filters.bedrooms)
+          );
+        }
+        
+        setFilteredListings(filtered);
         setIsFiltered(true);
         
-        console.log(`✅ Filtreleme başarılı: ${data.filteredCount}/${data.totalCount} ilan`);
+        console.log(`✅ Filtreleme başarılı: ${filtered.length}/${data.data.length} ilan`);
       } else {
         console.error('❌ Filtreleme hatası:', data.message);
       }
@@ -51,17 +78,27 @@ const HomePage = () => {
     try {
       setLoading(true);
       console.log('🔍 HomePage: Arama yapılıyor', searchTerm);
-      const url = searchTerm.trim() 
-        ? `http://localhost:8080/api/listings/search?q=${encodeURIComponent(searchTerm)}`
-        : 'http://localhost:8080/api/listings';
-      const response = await fetch(url);
+      
+      const response = await fetch('http://localhost:8080/api/listings');
       const data = await response.json();
       
       if (data.success) {
-        setFilteredListings(data.data);
-        setIsFiltered(searchTerm.trim() !== '');
-        
-        console.log(`✅ Arama tamamlandı: ${data.count || data.data.length} ilan bulundu`);
+        if (searchTerm.trim()) {
+          const filtered = data.data.filter(listing => 
+            (listing.ismi || listing.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (listing.aciklama || listing.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (listing.city || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (listing.district || '').toLowerCase().includes(searchTerm.toLowerCase())
+          );
+          
+          setFilteredListings(filtered);
+          setIsFiltered(true);
+          console.log(`✅ Arama tamamlandı: ${filtered.length} ilan bulundu`);
+        } else {
+          setFilteredListings([]);
+          setIsFiltered(false);
+          console.log('🔍 Arama temizlendi, tüm ilanlar gösteriliyor');
+        }
       } else {
         console.error('❌ Arama hatası:', data.message);
       }
@@ -174,11 +211,11 @@ const App = () => {
     checkLoginStatus();
   };
 
-  // ⭐ Header arama handler'ı
+  // ⭐ Header arama handler'ı - sadece ana sayfada çalışacak
   const handleHeaderSearch = useCallback(async (searchTerm) => {
-    // Bu fonksiyon sadece HomePage'de kullanılacak
-    // Diğer sayfalarda arama yapılmayacak
-console.log("🔍 Header'dan arama:", searchTerm);  }, []);
+    console.log("🔍 Header'dan arama:", searchTerm);
+    // Bu fonksiyon sadece HomePage'de aktif olacak
+  }, []);
 
   if (loading) {
     return (

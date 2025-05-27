@@ -1,4 +1,4 @@
-// src/components/ListingDetail/ListingDetail.js - Full Page Scroll + Google Maps
+// src/components/ListingDetail/ListingDetail.js - Sadece Backend Favori
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
@@ -15,6 +15,7 @@ const ListingDetail = () => {
   const [error, setError] = useState(null);
   const [selectedImage, setSelectedImage] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [user, setUser] = useState(null);
   const mapRef = useRef(null);
   const googleMapRef = useRef(null);
 
@@ -26,6 +27,20 @@ const ListingDetail = () => {
     'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&h=600&fit=crop',
     'https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=800&h=600&fit=crop'
   ];
+
+  // ⭐ Kullanıcı bilgisini al
+  useEffect(() => {
+    try {
+      const userData = localStorage.getItem('user');
+      if (userData) {
+        const parsed = JSON.parse(userData);
+        setUser(parsed);
+        console.log('👤 Kullanıcı:', parsed);
+      }
+    } catch (error) {
+      console.error('❌ User data parse hatası:', error);
+    }
+  }, []);
 
   // Backend'den ilan detayını çek
   const fetchListing = async () => {
@@ -70,9 +85,7 @@ const ListingDetail = () => {
           viewCount: fetchedListing.viewCount || Math.floor(Math.random() * 500) + 50,
           features: fetchedListing.features || ['Asansör', 'Güvenlik', 'Otopark'],
           images: mockImages,
-          // Konum bilgileri - sadece adres yeterli, koordinat otomatik bulunacak
           address: fetchedListing.konum || `${fetchedListing.city}, ${fetchedListing.district}, İstanbul` || 'Şişli, İstanbul',
-          // coordinates artık opsiyonel - yoksa adres üzerinden bulunacak
           coordinates: fetchedListing.coordinates || null
         };
         
@@ -88,6 +101,63 @@ const ListingDetail = () => {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ⭐ Favori durumunu kontrol et (sadece backend)
+  const checkFavoriteStatus = async () => {
+    if (!user?.id || !listing?.ilanID) return;
+
+    try {
+      const response = await fetch(
+        `http://localhost:8080/api/favorites/check?userId=${user.id}&listingId=${listing.ilanID}`
+      );
+      const result = await response.json();
+      
+      if (result.success) {
+        setIsFavorite(result.isFavorite);
+        console.log('💖 Backend favori durumu:', result.isFavorite);
+      }
+    } catch (error) {
+      console.error('❌ Favori durumu kontrol hatası:', error);
+    }
+  };
+
+  // ⭐ Favori toggle (sadece backend)
+  const handleFavoriteToggle = async () => {
+    if (!listing || !user?.id) {
+      alert('Favorilere eklemek için giriş yapmalısınız!');
+      return;
+    }
+    
+    const listingId = listing.ilanID || listing.id;
+    const userId = user.id;
+
+    try {
+      // Backend'e gönder
+      const endpoint = isFavorite ? '/api/favorites/remove' : '/api/favorites/add';
+      const response = await fetch(`http://localhost:8080${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, listingId })
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        const newFavoriteState = !isFavorite;
+        setIsFavorite(newFavoriteState);
+        
+        console.log('✅ Backend favori sistemi:', newFavoriteState ? 'Eklendi' : 'Çıkarıldı');
+        alert(newFavoriteState ? '❤️ İlan favorilerinize eklendi!' : '💔 İlan favorilerinizden çıkarıldı!');
+        
+      } else {
+        alert('❌ Favori işlemi başarısız: ' + result.message);
+      }
+      
+    } catch (error) {
+      console.error('❌ Backend hatası:', error);
+      alert('❌ Sunucu ile bağlantı kurulamadı!');
     }
   };
 
@@ -119,10 +189,8 @@ const ListingDetail = () => {
       // Geocoding options - Türkiye'ye öncelik ver
       const geocodeOptions = {
         address: address,
-        region: 'TR', // Türkiye bölge kodu
-        componentRestrictions: {
-          country: 'TR' // Sadece Türkiye'de ara
-        }
+        region: 'TR',
+        componentRestrictions: { country: 'TR' }
       };
       
       console.log('🔍 Geocoding başlatılıyor:', address);
@@ -136,69 +204,20 @@ const ListingDetail = () => {
             lng: location.lng()
           };
           
-          // Geocoding kalitesini kontrol et
           const locationType = result.geometry.location_type;
-          const addressComponents = result.address_components;
           
-          console.log('✅ Geocoding başarılı!');
-          console.log('📍 Girilen adres:', address);
-          console.log('🎯 Bulunan adres:', result.formatted_address);
-          console.log('📊 Konum kalitesi:', locationType);
-          console.log('🗺️ Koordinatlar:', coordinates);
-          
-          // Adres componentlerini logla
-          const addressInfo = {
-            street_number: '',
-            route: '',
-            neighborhood: '',
-            sublocality: '',
-            locality: '',
-            administrative_area_level_1: '',
-            postal_code: ''
-          };
-          
-          addressComponents.forEach(component => {
-            const types = component.types;
-            if (types.includes('street_number')) addressInfo.street_number = component.long_name;
-            if (types.includes('route')) addressInfo.route = component.long_name;
-            if (types.includes('neighborhood')) addressInfo.neighborhood = component.long_name;
-            if (types.includes('sublocality')) addressInfo.sublocality = component.long_name;
-            if (types.includes('locality')) addressInfo.locality = component.long_name;
-            if (types.includes('administrative_area_level_1')) addressInfo.administrative_area_level_1 = component.long_name;
-            if (types.includes('postal_code')) addressInfo.postal_code = component.long_name;
-          });
-          
-          console.log('🏠 Adres detayları:', addressInfo);
-          
-          // Kalite kontrolü
-          if (locationType === 'ROOFTOP') {
-            console.log('🎯 MÜKEMMEL: Tam bina seviyesinde konum bulundu!');
-          } else if (locationType === 'RANGE_INTERPOLATED') {
-            console.log('✅ İYİ: Sokak seviyesinde yaklaşık konum bulundu');
-          } else if (locationType === 'GEOMETRIC_CENTER') {
-            console.log('⚠️ ORTA: Bölge merkezi bulundu');
-          } else {
-            console.log('❗ DÜŞÜKKALİTE: Yaklaşık konum');
-          }
+          console.log('✅ Geocoding başarılı:', coordinates);
           
           resolve({
             coordinates,
             formattedAddress: result.formatted_address,
-            locationType: locationType,
-            addressComponents: addressInfo
+            locationType: locationType
           });
           
         } else {
           console.error('❌ Geocoding hatası:', status);
-          console.error('🔍 Bulunamayan adres:', address);
-          
-          // Hata durumunda varsayılan koordinat döndür
-          console.log('🏛️ Varsayılan İstanbul koordinatları kullanılıyor');
           resolve({
-            coordinates: {
-              lat: 41.0082,
-              lng: 28.9784
-            },
+            coordinates: { lat: 41.0082, lng: 28.9784 },
             formattedAddress: address,
             locationType: 'APPROXIMATE',
             error: `Geocoding hatası: ${status}`
@@ -217,7 +236,7 @@ const ListingDetail = () => {
         formattedAddress: listing.address
       };
 
-      // Eğer koordinat yoksa veya varsayılan değerse, adresi koordinata dönüştür
+      // Eğer koordinat yoksa, adresi koordinata dönüştür
       if (!mapData.coordinates || 
           (mapData.coordinates.lat === 41.0082 && mapData.coordinates.lng === 28.9784) ||
           (mapData.coordinates.lat === 0 && mapData.coordinates.lng === 0)) {
@@ -230,12 +249,10 @@ const ListingDetail = () => {
       // Map oluştur
       const map = new window.google.maps.Map(mapRef.current, {
         center: mapData.coordinates,
-        zoom: mapData.locationType === 'ROOFTOP' ? 18 : // Tam adres için çok yakın
-              mapData.locationType === 'RANGE_INTERPOLATED' ? 17 : // Sokak için yakın
-              mapData.locationType === 'GEOMETRIC_CENTER' ? 16 : // Bölge için orta
-              15, // Genel için uzak
+        zoom: mapData.locationType === 'ROOFTOP' ? 18 : 
+              mapData.locationType === 'RANGE_INTERPOLATED' ? 17 : 
+              mapData.locationType === 'GEOMETRIC_CENTER' ? 16 : 15,
         styles: [
-          // Gelişmiş dark theme
           {
             "elementType": "geometry",
             "stylers": [{"color": "#212121"}]
@@ -286,10 +303,9 @@ const ListingDetail = () => {
       });
 
       // Konum kalitesine göre marker rengi
-      const markerColor = mapData.locationType === 'ROOFTOP' ? '#00ff00' : // Yeşil - mükemmel
-                         mapData.locationType === 'RANGE_INTERPOLATED' ? '#d4af37' : // Altın - iyi
-                         mapData.locationType === 'GEOMETRIC_CENTER' ? '#ffa500' : // Turuncu - orta
-                         '#ff6b6b'; // Kırmızı - düşük kalite
+      const markerColor = mapData.locationType === 'ROOFTOP' ? '#00ff00' : 
+                         mapData.locationType === 'RANGE_INTERPOLATED' ? '#d4af37' : 
+                         mapData.locationType === 'GEOMETRIC_CENTER' ? '#ffa500' : '#ff6b6b';
 
       // Custom marker
       const marker = new window.google.maps.Marker({
@@ -309,7 +325,7 @@ const ListingDetail = () => {
         animation: window.google.maps.Animation.DROP
       });
 
-      // Gelişmiş Info Window
+      // Info Window
       const infoWindow = new window.google.maps.InfoWindow({
         content: `
           <div style="color: #333; font-family: 'Arial', sans-serif; max-width: 250px; padding: 8px;">
@@ -320,14 +336,6 @@ const ListingDetail = () => {
             <p style="margin: 0 0 8px 0; font-weight: bold; color: #d4af37; font-size: 1.1rem;">
               💰 ${typeof listing.price === 'number' ? listing.price.toLocaleString() + '₺/ay' : listing.price}
             </p>
-            <p style="margin: 0; color: #888; font-size: 0.8rem;">
-              🎯 Konum kalitesi: ${
-                mapData.locationType === 'ROOFTOP' ? '🟢 Mükemmel (Tam adres)' :
-                mapData.locationType === 'RANGE_INTERPOLATED' ? '🟡 İyi (Sokak seviyesi)' :
-                mapData.locationType === 'GEOMETRIC_CENTER' ? '🟠 Orta (Bölge merkezi)' :
-                '🔴 Yaklaşık'
-              }
-            </p>
           </div>
         `
       });
@@ -336,21 +344,19 @@ const ListingDetail = () => {
         infoWindow.open(map, marker);
       });
 
-      // Otomatik info window açma
       setTimeout(() => {
         infoWindow.open(map, marker);
       }, 1200);
 
       googleMapRef.current = map;
       console.log('🗺️ Google Maps başarıyla yüklendi');
-      console.log('📍 Final koordinatlar:', mapData.coordinates);
-      console.log('🏠 Formatlanmış adres:', mapData.formattedAddress);
 
     } catch (error) {
       console.error('❌ Google Maps yükleme hatası:', error);
     }
   };
 
+  // Component mount
   useEffect(() => {
     if (id) {
       fetchListing();
@@ -365,19 +371,21 @@ const ListingDetail = () => {
     if (listing && !loading && !error) {
       const timer = setTimeout(() => {
         loadGoogleMaps();
-      }, 500); // Biraz bekle ki DOM render olsun
+      }, 500);
       
       return () => clearTimeout(timer);
     }
   }, [listing, loading, error]);
 
+  // Listing yüklendikten sonra favori durumunu kontrol et
+  useEffect(() => {
+    if (listing && user) {
+      checkFavoriteStatus();
+    }
+  }, [listing, user]);
+
   const handleImageSelect = (index) => {
     setSelectedImage(index);
-  };
-
-  const handleFavoriteToggle = () => {
-    setIsFavorite(!isFavorite);
-    console.log('❤️ Favori durumu:', !isFavorite ? 'Eklendi' : 'Çıkarıldı');
   };
 
   const handleContactOwner = () => {
@@ -465,7 +473,7 @@ const ListingDetail = () => {
           <button 
             className={`${styles.actionBtn} ${isFavorite ? styles.favorite : ''}`}
             onClick={handleFavoriteToggle}
-            title="Favorilere Ekle"
+            title={isFavorite ? "Favorilerden Çıkar" : "Favorilere Ekle"}
           >
             <Heart size={18} fill={isFavorite ? 'currentColor' : 'none'} />
           </button>
@@ -481,7 +489,6 @@ const ListingDetail = () => {
           
           {/* Fotoğraf Galeri */}
           <div className={styles.photoSection}>
-            {/* Ana Fotoğraf */}
             <div className={styles.mainPhoto}>
               <img 
                 src={listing.images[selectedImage]}
@@ -495,7 +502,6 @@ const ListingDetail = () => {
               </div>
             </div>
 
-            {/* Preview Fotoğraflar */}
             <div className={styles.photoPreview}>
               {listing.images.map((image, index) => (
                 <div 
@@ -515,7 +521,7 @@ const ListingDetail = () => {
             </div>
           </div>
 
-          {/* ⭐ GOOGLE MAPS HARİTASI */}
+          {/* Google Maps */}
           <div className={styles.mapSection}>
             <div className={styles.mapHeader}>
               <Map size={20} />
@@ -526,7 +532,6 @@ const ListingDetail = () => {
               className={styles.mapContainer}
               style={{ height: '400px', width: '100%', borderRadius: '12px' }}
             >
-              {/* Google Maps buraya yüklenecek */}
               <div className={styles.mapLoading}>
                 <div className={styles.mapSpinner}></div>
                 <p>Harita yükleniyor...</p>
@@ -654,6 +659,28 @@ const ListingDetail = () => {
                     E-posta Gönder
                   </button>
                 </div>
+              </div>
+
+              {/* ⭐ Favori Bilgisi */}
+              <div className={styles.favoriteInfo}>
+                <h3>Favori Durumu</h3>
+                <div className={styles.favoriteStatus}>
+                  <Heart 
+                    size={24} 
+                    fill={isFavorite ? '#ff6b6b' : 'none'} 
+                    color={isFavorite ? '#ff6b6b' : '#666'} 
+                  />
+                  <span>
+                    {isFavorite ? 'Favorilerinizde' : 'Favorilerinizde değil'}
+                  </span>
+                </div>
+                <button 
+                  onClick={handleFavoriteToggle}
+                  className={`${styles.favoriteBtn} ${isFavorite ? styles.removeFavorite : styles.addFavorite}`}
+                >
+                  <Heart size={16} fill={isFavorite ? 'currentColor' : 'none'} />
+                  {isFavorite ? 'Favorilerden Çıkar' : 'Favorilere Ekle'}
+                </button>
               </div>
             </div>
 
