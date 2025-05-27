@@ -218,6 +218,8 @@ const ListingDetail = () => {
     }
 
     // Google Maps API script'ini yükle (Geocoding API de dahil)
+        // Google Maps API script'ini yükle (Geocoding API de dahil)
+
     const script = document.createElement('script');
     script.src = `https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=geometry,places&callback=initMap`;
     script.async = true;
